@@ -305,7 +305,7 @@ class tcp_client : public async_object<tcp_client>
 
     // Error whitelist - when encountering one of these errors,
     // we will gracefully close the socket.
-    const std::set<boost::system::error_code> m_errors_wl{
+    static inline const std::set<boost::system::error_code> m_errors_wl{
         boost::asio::ssl::error::stream_truncated};
 };
 
