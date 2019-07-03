@@ -21,7 +21,6 @@
 
 namespace ns {
 
-// This class *must* be created as a shared_ptr
 class tcp_client : public async_object<tcp_client>
 {
   public:
@@ -32,6 +31,9 @@ class tcp_client : public async_object<tcp_client>
         , m_socket(std::make_unique<socket>(*m_io_ptr, m_context))
         , m_resolver(*m_io_ptr)
     {
+        // Override this outside as a user before connecting if you
+        // wish to verify ssl certificates.
+        set_verify_mode(ssl::context::verify_none);
         logd("Default object created");
     }
 
@@ -41,7 +43,9 @@ class tcp_client : public async_object<tcp_client>
         , m_socket(std::make_unique<socket>(io, m_context))
         , m_resolver(io)
     {
-        m_socket->set_verify_mode(ssl::context::verify_none);
+        // Override this outside as a user before connecting if you
+        // wish to verify ssl certificates.
+        set_verify_mode(ssl::context::verify_none);
         logd("Object created with external io_service");
     }
 
@@ -86,6 +90,12 @@ class tcp_client : public async_object<tcp_client>
     const bool connected() const
     {
         return m_socket->lowest_layer().is_open();
+    }
+
+    template <typename VerifyMode>
+    void set_verify_mode(VerifyMode mode)
+    {
+        m_socket->set_verify_mode(mode);
     }
 
     void close()
