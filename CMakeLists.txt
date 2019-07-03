@@ -20,4 +20,4 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include )
 
 # Traverse through src directory
 add_subdirectory( src )
-
+add_subdirectory( include )

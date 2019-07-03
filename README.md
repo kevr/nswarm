@@ -8,14 +8,14 @@ A network cluster comprised of a master controller and worker nodes connected to
 Building
 --------
 
-		# Build entire project
-		[user@host] nswarm$ mkdir build && cd build
-		[user@host] build$ cmake ..
-		...
-		[user@host] build$ make
+	# Build entire project
+	[user@host] nswarm$ mkdir build && cd build
+	[user@host] build$ cmake ..
+	...
+	[user@host] build$ make
 
-		# Install everything (daemons, sdk libraries and headers)
-		[user@host] build$ sudo make install
+	# Install everything (daemons, sdk libraries and headers)
+	[user@host] build$ sudo make install
 
 Extending
 ---------
