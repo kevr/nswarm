@@ -74,7 +74,9 @@ flags = [
 '-isystem',
 './tests/gmock/include',
 '-I',
-'./include'
+'./include',
+"-I",
+"./src"
 ]
 
 
