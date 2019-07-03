@@ -54,14 +54,15 @@ class tcp_client : public async_object<tcp_client>
         : m_io_ptr(std::move(other.m_io_ptr))
         , m_context(std::move(other.m_context))
         , m_socket(std::move(other.m_socket))
-        , m_resolver(m_socket->get_io_service())
+        , m_resolver(std::move(other.m_resolver))
     {}
 
     void operator=(tcp_client &&other)
     {
-        m_socket = std::move(other.m_socket);
-        m_context = std::move(other.m_context);
         m_io_ptr = std::move(other.m_io_ptr);
+        m_context = std::move(other.m_context);
+        m_socket = std::move(other.m_socket);
+        m_resolver = std::move(other.m_resolver);
     }
 
     ~tcp_client() = default;
