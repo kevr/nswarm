@@ -14,18 +14,16 @@
 namespace ns {
 
 template <typename T>
-using async_read_function =
-    std::function<void(std::shared_ptr<T>, const message &)>;
+using async_read_function = std::function<void(T &, const message &)>;
 
 template <typename T>
-using async_connect_function = std::function<void(std::shared_ptr<T>)>;
+using async_connect_function = std::function<void(T &)>;
 
 template <typename T>
-using async_close_function = std::function<void(std::shared_ptr<T>)>;
+using async_close_function = std::function<void(T &)>;
 
 template <typename T>
-using async_error_function =
-    std::function<void(std::shared_ptr<T>, std::exception)>;
+using async_error_function = std::function<void(T &, std::exception)>;
 
 template <typename T>
 class async_object
@@ -34,21 +32,25 @@ class async_object
     async_object &on_read(async_read_function<T> f)
     {
         m_read_f = f;
+        return *this;
     }
 
     async_object &on_connect(async_connect_function<T> f)
     {
         m_connect_f = f;
+        return *this;
     }
 
     async_object &on_close(async_close_function<T> f)
     {
         m_close_f = f;
+        return *this;
     }
 
     async_object &on_error(async_error_function<T> f)
     {
         m_error_f = f;
+        return *this;
     }
 
   protected:
