@@ -269,7 +269,7 @@ class tcp_client : public async_object<tcp_client>
             if (m_error_f)
                 m_error_f(*this, ec);
         } else {
-            logd(std::forward<Args>(args)...);
+            logd(std::forward<Args>(args)..., ": ", ec.message());
             close();
             if (m_close_f)
                 m_close_f(*this);
@@ -306,7 +306,11 @@ class tcp_client : public async_object<tcp_client>
     // Error whitelist - when encountering one of these errors,
     // we will gracefully close the socket.
     static inline const std::set<boost::system::error_code> m_errors_wl{
-        boost::asio::ssl::error::stream_truncated};
+        boost::asio::ssl::error::stream_truncated,
+        boost::asio::error::operation_aborted,
+        boost::asio::error::connection_aborted,
+        boost::asio::error::connection_reset,
+        boost::asio::error::connection_refused};
 };
 
 }; // namespace ns
