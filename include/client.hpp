@@ -137,7 +137,7 @@ class tcp_client : public async_object<tcp_client>
                             boost::asio::placeholders::error, iter));
             // connect!
         } else {
-            loge(ec.message());
+            handle_error(ec, "unable to resolve address: ", ec.message());
         }
     }
 
@@ -159,7 +159,7 @@ class tcp_client : public async_object<tcp_client>
                 boost::bind(&tcp_client::async_on_connect, this,
                             boost::asio::placeholders::error, iter));
         } else {
-            loge(ec.message());
+            handle_error(ec, "unable to connect: ", ec.message());
         }
     }
 
@@ -177,15 +177,12 @@ class tcp_client : public async_object<tcp_client>
                 boost::bind(&tcp_client::async_on_read_packet, this,
                             boost::asio::placeholders::error));
         } else {
-            loge(ec.message());
+            handle_error(ec, "client socket closed while handshaking");
         }
     }
 
     void async_on_read_packet(const boost::system::error_code &ec)
     {
-        const std::set<boost::system::error_code> errors = {
-            boost::asio::ssl::error::stream_truncated};
-
         if (!ec) {
             uint64_t pkt;
             m_is >> pkt;
@@ -213,13 +210,7 @@ class tcp_client : public async_object<tcp_client>
                                 boost::asio::placeholders::error));
             }
         } else {
-            if (errors.find(ec) == errors.end()) {
-                loge(ec.message());
-            } else {
-                logd("client disconnected");
-                if (m_close_f)
-                    m_close_f(*this);
-            }
+            handle_error(ec, "client socket closed while reading data packet");
         }
     }
 
@@ -243,7 +234,7 @@ class tcp_client : public async_object<tcp_client>
                 boost::bind(&tcp_client::async_on_read_packet, this,
                             boost::asio::placeholders::error));
         } else {
-            loge(ec.message());
+            handle_error(ec, "client socket closed while reading data chunk");
         }
     }
 
@@ -253,7 +244,24 @@ class tcp_client : public async_object<tcp_client>
             logd("sent ", bytes, " bytes of data (", bytes - sizeof(uint64_t),
                  " data size)");
         } else {
+            handle_error(ec, "client socket closed while writing");
+        }
+    }
+
+    template <typename... Args>
+    void handle_error(const boost::system::error_code &ec, Args &&... args)
+    {
+        // If the error is not in the whitelist, explicitly log it out
+        if (m_errors_wl.find(ec) == m_errors_wl.end()) {
             loge(ec.message());
+            close();
+            if (m_error_f)
+                m_error_f(*this, ec);
+        } else {
+            logd(std::forward<Args>(args)...);
+            close();
+            if (m_close_f)
+                m_close_f(*this);
         }
     }
 
@@ -283,6 +291,11 @@ class tcp_client : public async_object<tcp_client>
   protected:
     ssl::context m_context;
     std::unique_ptr<socket> m_socket;
+
+    // Error whitelist - when encountering one of these errors,
+    // we will gracefully close the socket.
+    const std::set<boost::system::error_code> m_errors_wl{
+        boost::asio::ssl::error::stream_truncated};
 };
 
 }; // namespace ns

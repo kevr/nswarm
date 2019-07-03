@@ -7,6 +7,7 @@
 #define NS_ASYNC_HPP
 
 #include "data.hpp"
+#include <boost/asio.hpp>
 #include <functional>
 #include <memory>
 #include <string>
@@ -23,7 +24,8 @@ template <typename T>
 using async_close_function = std::function<void(T &)>;
 
 template <typename T>
-using async_error_function = std::function<void(T &, std::exception)>;
+using async_error_function =
+    std::function<void(T &, const boost::system::error_code &)>;
 
 template <typename T>
 class async_object
