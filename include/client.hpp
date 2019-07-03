@@ -71,9 +71,10 @@ class tcp_client : public async_object<tcp_client>
 
     ~tcp_client() = default;
 
-    void send(uint16_t type, uint16_t flags = 0, uint32_t data_size = 0,
+    void send(uint16_t type, uint16_t flags = 0,
               std::optional<std::string> data = std::optional<std::string>())
     {
+        uint32_t data_size = data ? (*data).size() : 0;
         uint64_t pkt = serialize_packet(type, flags, data_size);
         m_os << pkt;
         if (data)
