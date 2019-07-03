@@ -7,6 +7,15 @@
 #
 
 project( nswarm )
+cmake_minimum_required( VERSION 2.4 )
+
+# Add target linker flags here
+set(PROJECT_LIBS "-pthread -lgtest")
+
+# We require a C++17 compliant compiler
+set(CMAKE_CXX_FLAGS "-std=c++17 -O0 -g")
+set(CMAKE_CXX_STANDARD_LIBRARIES ${PROJECT_LIBS})
+
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include )
 
 # Traverse through src directory
