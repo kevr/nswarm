@@ -1,3 +1,11 @@
+/**
+ * \project nswarm
+ * \file tests/program_options_test.cpp
+ * \description program_options class tests for parsing user arguments
+ *
+ * Copyright (c) 2019 Kevin Morris
+ * All Rights Reserved.
+ **/
 #include "config.hpp"
 #include <gtest/gtest.h>
 
