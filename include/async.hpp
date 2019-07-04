@@ -157,15 +157,21 @@ public:
     void send(uint16_t type, uint16_t flags = 0,
               std::optional<std::string> data = std::optional<std::string>())
     {
-        uint32_t data_size = data ? (*data).size() : 0;
-        uint64_t pkt = serialize_packet(type, flags, data_size);
-        m_os << pkt;
+        uint32_t data_size = 0; // Assume no data
+
+        // Here: if data is present, serialize_packet with the real data size
+        // and set data_size at the same time.
+        uint64_t pkt =
+            data ? serialize_packet(type, flags, data_size)
+                 : serialize_packet(type, flags, (data_size = data->size()));
+
+        m_os << pkt; // Put the packet header into the stream
         if (data)
             m_os << *data;
 
         boost::asio::async_write(
             *m_socket, m_output,
-            boost::asio::transfer_exactly(data_size + sizeof(uint64_t)),
+            boost::asio::transfer_exactly(data_size + sizeof(pkt)),
             boost::bind(&T::async_on_write, this->shared_from_this(),
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
