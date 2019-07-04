@@ -149,12 +149,15 @@ static detail::logstream &cout = detail::logstream::instance();
 }; // namespace ns
 
 #define logi(...)                                                              \
-    ns::cout.info(basename(__FILE__), '(', __LINE__, "): ", __VA_ARGS__);
+    ns::cout.info(basename((char *)__FILE__), '(', __LINE__,                   \
+                  "): ", __VA_ARGS__);
 
 #define logd(...)                                                              \
-    ns::cout.debug(basename(__FILE__), '(', __LINE__, "): ", __VA_ARGS__);
+    ns::cout.debug(basename((char *)__FILE__), '(', __LINE__,                  \
+                   "): ", __VA_ARGS__);
 
 #define loge(...)                                                              \
-    ns::cout.error(basename(__FILE__), '(', __LINE__, "): ", __VA_ARGS__);
+    ns::cout.error(basename((char *)__FILE__), '(', __LINE__,                  \
+                   "): ", __VA_ARGS__);
 
 #endif
