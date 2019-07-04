@@ -121,6 +121,34 @@ private:
 };
 
 /**
+ * \class async_io_object
+ * \brief Base object for connections (both server and client-side).
+ * \description async_io_object provides the entire i/o layer for
+ * our connect, read, write, and close actions. This object
+ * can be used to implement a functional tcp client or tcp server
+ * connection.
+ *
+ * Example:
+ * class A : public async_io_object<A>
+ * {
+ * public:
+ *     void run()
+ *     {
+ *         on_read([](auto c) {
+ *                 // ...
+ *             })
+ *             ->on_close([](auto c) {
+ *                 // ...
+ *             });
+ *
+ *         // Initiate handshake; generally what you'd do
+ *         // from a server connection
+ *         m_socket->async_handshake(ssl::stream_base::client,
+ *             boost::bind(&A::async_on_read, this->shared_from_this(),
+ *                 boost::asio::placeholders::error));
+ *     }
+ * };
+ *
  **/
 template <typename T>
 class async_io_object : public async_object<T>
