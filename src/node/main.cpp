@@ -6,10 +6,9 @@
  *
  * Copyright (c) 2019 Kevin Morris
  * All Rights Reserved
-**/
+ **/
 
 int main(int argc, const char *argv[])
 {
     return 0;
 }
-

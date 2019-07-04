@@ -12,12 +12,13 @@
 #include <mutex>
 #include <sstream>
 
-namespace ns {
+namespace ns
+{
 
 // Color
-namespace color {
-struct normal
+namespace color
 {
+struct normal {
     static constexpr const char *const value = "\033[0m";
 
     virtual const char *const get() const
@@ -26,8 +27,7 @@ struct normal
     }
 };
 
-struct green : public normal
-{
+struct green : public normal {
     static constexpr const char *const value = "\033[1;32m";
 
     virtual const char *const get() const
@@ -36,8 +36,7 @@ struct green : public normal
     }
 };
 
-struct red : public normal
-{
+struct red : public normal {
     static constexpr const char *const value = "\033[1;31m";
 
     virtual const char *const get() const
@@ -46,8 +45,7 @@ struct red : public normal
     }
 };
 
-struct yellow : public normal
-{
+struct yellow : public normal {
     static constexpr const char *const value = "\033[1;33m";
 
     virtual const char *const get() const
@@ -64,7 +62,8 @@ inline std::stringstream &operator<<(std::stringstream &ss,
     return ss;
 }
 
-namespace detail {
+namespace detail
+{
 
 /**
  * \brief This class uses std::cout/cerr to log. It redirects
@@ -72,7 +71,7 @@ namespace detail {
  **/
 class logstream
 {
-  public:
+public:
     static logstream &instance()
     {
         static logstream i;
@@ -87,8 +86,7 @@ class logstream
         instance().m_debug = enabled;
     }
 
-    template <typename... Args>
-    void out(Args &&... args)
+    template <typename... Args> void out(Args &&... args)
     {
         // New stringstream for this recursive call. We use a standalone ss
         // in order to remain thread-safe.
@@ -96,22 +94,19 @@ class logstream
         f_out(ss, std::forward<Args>(args)...);
     }
 
-    template <typename... Args>
-    void info(Args &&... args)
+    template <typename... Args> void info(Args &&... args)
     {
         out("[ ", color::green::value, "INFO", color::normal::value, " ] ",
             std::forward<Args>(args)...);
     }
 
-    template <typename... Args>
-    void error(Args &&... args)
+    template <typename... Args> void error(Args &&... args)
     {
         out("[  ", color::red::value, "ERR", color::normal::value, " ] ",
             std::forward<Args>(args)...);
     }
 
-    template <typename... Args>
-    void debug(Args &&... args)
+    template <typename... Args> void debug(Args &&... args)
     {
         if (m_debug) {
             out("[  ", color::yellow::value, "DBG", color::normal::value, " ] ",
@@ -119,7 +114,7 @@ class logstream
         }
     }
 
-  private:
+private:
     template <typename T, typename... Args>
     void f_out(std::stringstream &ss, T &&arg, Args &&... args)
     {
@@ -128,8 +123,7 @@ class logstream
         f_out(ss, std::forward<Args>(args)...);
     }
 
-    template <typename T>
-    void f_out(std::stringstream &ss, T &&arg)
+    template <typename T> void f_out(std::stringstream &ss, T &&arg)
     {
         // Last f_out call, single argument left. Close out and call cout
         // a single time, as to avoid interleaving on console.
@@ -137,7 +131,7 @@ class logstream
         std::cout << ss.str(); // Thread-safe
     }
 
-  private:
+private:
     bool m_debug = false;
 };
 

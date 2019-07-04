@@ -6,10 +6,10 @@
 #include <string>
 #include <tuple>
 
-namespace ns {
-
-enum message_type : uint16_t
+namespace ns
 {
+
+enum message_type : uint16_t {
     auth = 1,  // Auth: node -> cluster, api -> cluster
     provide,   // Provide: node -> host
     subscribe, // Subscribe: node -> host
@@ -37,10 +37,10 @@ deserialize_packet(uint64_t data)
     return std::make_tuple(a, b, c);
 }
 
-struct message
-{
-  public:
-    message(uint64_t pkt, std::optional<std::string> data) : m_pkt(pkt)
+struct message {
+public:
+    message(uint64_t pkt, std::optional<std::string> data)
+        : m_pkt(pkt)
     {
         if (data)
             m_data = *data;
@@ -67,7 +67,7 @@ struct message
         return m_pkt >> 32;
     }
 
-  private:
+private:
     // pkt: [16 bits flags][16 bits flags][32 bits data size]
     uint64_t m_pkt;
     std::string m_data;

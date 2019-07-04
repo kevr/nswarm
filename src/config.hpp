@@ -20,14 +20,15 @@
 // posix standard library
 #include <libgen.h>
 
-namespace ns {
+namespace ns
+{
 /**
  * \class program_options
  * \brief Deduces program name and arguments.
  **/
 class program_options
 {
-  public:
+public:
     program_options() = default;
 
     program_options(int argc, const char *argv[])
@@ -35,8 +36,10 @@ class program_options
         parse(argc, argv);
     }
 
-    program_options(const program_options &opt) : m_executable(opt.m_executable)
-    {} // Copy constructor
+    program_options(const program_options &opt)
+        : m_executable(opt.m_executable)
+    {
+    } // Copy constructor
 
     void operator=(const program_options &opt)
     {
@@ -45,7 +48,8 @@ class program_options
 
     program_options(program_options &&opt)
         : m_executable(std::move(opt.m_executable))
-    {} // Move constructor
+    {
+    } // Move constructor
 
     void operator=(program_options &&opt)
     {
@@ -64,7 +68,7 @@ class program_options
         return m_executable;
     }
 
-  private:
+private:
     std::string m_executable;
 };
 

@@ -12,25 +12,23 @@
 #include <memory>
 #include <string>
 
-namespace ns {
+namespace ns
+{
 
 template <typename T>
 using async_read_function = std::function<void(T &, const message &)>;
 
-template <typename T>
-using async_connect_function = std::function<void(T &)>;
+template <typename T> using async_connect_function = std::function<void(T &)>;
 
-template <typename T>
-using async_close_function = std::function<void(T &)>;
+template <typename T> using async_close_function = std::function<void(T &)>;
 
 template <typename T>
 using async_error_function =
     std::function<void(T &, const boost::system::error_code &)>;
 
-template <typename T>
-class async_object
+template <typename T> class async_object
 {
-  public:
+public:
     async_object &on_read(async_read_function<T> f)
     {
         m_read_f = f;
@@ -55,7 +53,7 @@ class async_object
         return *this;
     }
 
-  protected:
+protected:
     async_read_function<T> m_read_f;
     async_connect_function<T> m_connect_f;
     async_close_function<T> m_close_f;

@@ -19,11 +19,12 @@
 #include <memory>
 #include <set>
 
-namespace ns {
+namespace ns
+{
 
 class tcp_client : public async_object<tcp_client>
 {
-  public:
+public:
     // Create a tcp_client with an independent io_service
     tcp_client()
         : m_io_ptr(std::make_unique<io_service>())
@@ -59,7 +60,8 @@ class tcp_client : public async_object<tcp_client>
         , m_context(std::move(other.m_context))
         , m_socket(std::move(other.m_socket))
         , m_resolver(std::move(other.m_resolver))
-    {}
+    {
+    }
 
     void operator=(tcp_client &&other)
     {
@@ -93,8 +95,7 @@ class tcp_client : public async_object<tcp_client>
         return m_socket->lowest_layer().is_open();
     }
 
-    template <typename VerifyMode>
-    void set_verify_mode(VerifyMode mode)
+    template <typename VerifyMode> void set_verify_mode(VerifyMode mode)
     {
         m_socket->set_verify_mode(mode);
     }
@@ -123,7 +124,7 @@ class tcp_client : public async_object<tcp_client>
             m_socket->get_io_service().stop();
     }
 
-  private:
+private:
     void connect(const std::string &host, const std::string &port)
     {
         m_host = host;
@@ -283,7 +284,7 @@ class tcp_client : public async_object<tcp_client>
         m_remote_port = "";
     }
 
-  private:
+private:
     boost::asio::streambuf m_input;
     std::istream m_is{&m_input};
 
@@ -300,7 +301,7 @@ class tcp_client : public async_object<tcp_client>
     std::string m_remote_host;
     std::string m_remote_port;
 
-  protected:
+protected:
     ssl::context m_context;
     std::unique_ptr<socket> m_socket;
 
