@@ -33,6 +33,9 @@ template <typename T>
 using async_error_function =
     std::function<void(std::shared_ptr<T>, const boost::system::error_code &)>;
 
+template <typename T>
+using async_accept_function = std::function<void(std::shared_ptr<T>)>;
+
 /**
  * \class async_object
  * \brief Provides async callback functions to a derived class
@@ -66,6 +69,51 @@ public:
     }
 
 protected:
+    template <typename... Args>
+    void call_read(Args &&... args)
+    {
+        m_read_f(std::forward<Args>(args)...);
+    }
+
+    bool has_read() const
+    {
+        return m_read_f != nullptr;
+    }
+
+    template <typename... Args>
+    void call_connect(Args &&... args)
+    {
+        m_connect_f(std::forward<Args>(args)...);
+    }
+
+    bool has_connect() const
+    {
+        return m_connect_f != nullptr;
+    }
+
+    template <typename... Args>
+    void call_close(Args &&... args)
+    {
+        m_close_f(std::forward<Args>(args)...);
+    }
+
+    bool has_close() const
+    {
+        return m_close_f != nullptr;
+    }
+
+    template <typename... Args>
+    void call_error(Args &&... args)
+    {
+        m_error_f(std::forward<Args>(args)...);
+    }
+
+    bool has_error() const
+    {
+        return m_error_f != nullptr;
+    }
+
+private:
     async_read_function<T> m_read_f;
     async_connect_function<T> m_connect_f;
     async_close_function<T> m_close_f;
@@ -78,6 +126,24 @@ template <typename T>
 class async_io_object : public async_object<T>
 {
 public:
+    void send(uint16_t type, uint16_t flags = 0,
+              std::optional<std::string> data = std::optional<std::string>())
+    {
+        uint32_t data_size = data ? (*data).size() : 0;
+        uint64_t pkt = serialize_packet(type, flags, data_size);
+        m_os << pkt;
+        if (data)
+            m_os << *data;
+
+        boost::asio::async_write(
+            *m_socket, m_output,
+            boost::asio::transfer_exactly(data_size + sizeof(uint64_t)),
+            boost::bind(&T::async_on_write, this->shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    }
+
+protected:
     // boost::asio async callbacks
     void async_on_resolve(const boost::system::error_code &ec,
                           tcp::resolver::iterator iter)
@@ -122,8 +188,8 @@ public:
         if (!ec) {
             logd("handshake succeeded");
 
-            if (this->m_connect_f)
-                this->m_connect_f(this->shared_from_this());
+            if (this->has_connect())
+                this->call_connect(this->shared_from_this());
 
             boost::asio::async_read(
                 *m_socket, m_input,
@@ -153,9 +219,9 @@ public:
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred, pkt));
             } else {
-                if (this->m_read_f) {
+                if (this->has_read()) {
                     message msg(pkt, std::nullopt);
-                    this->m_read_f(this->shared_from_this(), msg);
+                    this->call_read(this->shared_from_this(), msg);
                 }
                 boost::asio::async_read(
                     *m_socket, m_input,
@@ -178,9 +244,9 @@ public:
             logd("received ", bytes, " bytes of data");
 
             // Construct message, pass to read fn if provided
-            if (this->m_read_f) {
+            if (this->has_read()) {
                 message msg(pkt, data);
-                this->m_read_f(this->shared_from_this(), msg);
+                this->call_read(this->shared_from_this(), msg);
             }
 
             boost::asio::async_read(
@@ -203,23 +269,6 @@ public:
         }
     }
 
-    void send(uint16_t type, uint16_t flags = 0,
-              std::optional<std::string> data = std::optional<std::string>())
-    {
-        uint32_t data_size = data ? (*data).size() : 0;
-        uint64_t pkt = serialize_packet(type, flags, data_size);
-        m_os << pkt;
-        if (data)
-            m_os << *data;
-
-        boost::asio::async_write(
-            *m_socket, m_output,
-            boost::asio::transfer_exactly(data_size + sizeof(uint64_t)),
-            boost::bind(&T::async_on_write, this->shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
-    }
-
     template <typename... Args>
     void handle_error(const boost::system::error_code &ec, Args &&... args)
     {
@@ -227,13 +276,13 @@ public:
         if (m_errors_wl.find(ec) == m_errors_wl.end()) {
             loge(ec.message());
             close();
-            if (this->m_error_f)
-                this->m_error_f(this->shared_from_this(), ec);
+            if (this->has_error())
+                this->call_error(this->shared_from_this(), ec);
         } else {
             logd(std::forward<Args>(args)..., ": ", ec.message());
             close();
-            if (this->m_close_f)
-                this->m_close_f(this->shared_from_this());
+            if (this->has_close())
+                this->call_close(this->shared_from_this());
         }
     }
 
