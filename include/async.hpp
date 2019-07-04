@@ -40,29 +40,29 @@ using async_accept_function = std::function<void(std::shared_ptr<T>)>;
  * \class async_object
  * \brief Provides async callback functions to a derived class
  **/
-template <typename T>
+template <typename T, typename CallbackT = T>
 class async_object : public std::enable_shared_from_this<T>
 {
 public:
-    async_object &on_read(async_read_function<T> f)
+    async_object &on_read(async_read_function<CallbackT> f)
     {
         m_read_f = f;
         return *this;
     }
 
-    async_object &on_connect(async_connect_function<T> f)
+    async_object &on_connect(async_connect_function<CallbackT> f)
     {
         m_connect_f = f;
         return *this;
     }
 
-    async_object &on_close(async_close_function<T> f)
+    async_object &on_close(async_close_function<CallbackT> f)
     {
         m_close_f = f;
         return *this;
     }
 
-    async_object &on_error(async_error_function<T> f)
+    async_object &on_error(async_error_function<CallbackT> f)
     {
         m_error_f = f;
         return *this;
@@ -114,10 +114,10 @@ protected:
     }
 
 private:
-    async_read_function<T> m_read_f;
-    async_connect_function<T> m_connect_f;
-    async_close_function<T> m_close_f;
-    async_error_function<T> m_error_f;
+    async_read_function<CallbackT> m_read_f;
+    async_connect_function<CallbackT> m_connect_f;
+    async_close_function<CallbackT> m_close_f;
+    async_error_function<CallbackT> m_error_f;
 };
 
 /**
