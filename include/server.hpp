@@ -14,6 +14,7 @@
 #include "logging.hpp"
 #include "types.hpp"
 #include <memory>
+#include <thread>
 
 namespace ns
 {
@@ -75,20 +76,28 @@ std::shared_ptr<tcp_connection> make_tcp_connection(Args &&... args)
 class tcp_server : public async_object<tcp_server, tcp_connection>
 {
 public:
-    tcp_server()
+    tcp_server(unsigned short port)
         : m_io_ptr(std::make_unique<io_service>())
         , m_context(ssl::context::sslv23)
-        , m_acceptor(*m_io_ptr)
+        , m_acceptor(*m_io_ptr, tcp::endpoint(tcp::v4(), port))
     {
     }
 
-    tcp_server(io_service &io)
+    tcp_server(io_service &io, unsigned short port)
         : m_context(ssl::context::sslv23)
-        , m_acceptor(io)
+        , m_acceptor(io, tcp::endpoint(tcp::v4(), port))
     {
     }
 
     ~tcp_server() = default;
+
+    std::shared_ptr<tcp_server> use_certificate(const std::string &cert,
+                                                const std::string &key)
+    {
+        m_context.use_certificate_file(cert, ssl::context::file_format::pem);
+        m_context.use_private_key_file(key, ssl::context::file_format::pem);
+        return this->shared_from_this();
+    }
 
     // Since our standard on_error will be propagated to
     // connected clients, we need a custom error handler here
@@ -117,9 +126,30 @@ public:
 
     void run()
     {
+        m_acceptor.listen();
         try_accept();
         if (m_io_ptr)
             m_io_ptr->run();
+    }
+
+    // Start the server by calling run() within a thread
+    void start()
+    {
+        logd("starting thread");
+        m_thread = std::thread([this] { run(); });
+        // Purposely sleep this function for 1/4th of a second
+        // to allow the thread to start up and begin accepting
+        // clients.
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+
+    // Completely stop the server. Reset the associated
+    // io_service and join the accept thread.
+    void stop()
+    {
+        logd("stopping thread");
+        m_io_ptr->stop();
+        m_thread.join();
     }
 
 protected:
@@ -195,6 +225,8 @@ private:
 
     // A special callback just for server errors.
     async_error_function<tcp_server> m_server_error_f;
+
+    std::thread m_thread;
 
 protected:
     ssl::context m_context;

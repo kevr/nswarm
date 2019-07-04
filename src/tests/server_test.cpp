@@ -1,3 +1,4 @@
+#include "client.hpp"
 #include "server.hpp"
 #include <gtest/gtest.h>
 
@@ -6,22 +7,30 @@ class server_test : public ::testing::Test
 protected:
     virtual void SetUp()
     {
-        m_server = ns::make_tcp_server();
+        ns::cout.set_debug(true);
+
+        m_server = ns::make_tcp_server(6666);
 
         // Setup connection bindings
-        m_server
+        m_server->use_certificate("cert.crt", "cert.key")
             ->on_server_error([](auto server, const auto &ec) {
-                loge("Server error: ", ec.message());
+                loge("server error: ", ec.message());
             })
-            ->on_read([](auto client, auto msg) { logi("Read data"); })
-            ->on_close([](auto client) { logi("Connection closed"); })
+            ->on_read([](auto client, auto msg) { logi("read data"); })
+            ->on_close([](auto client) { logi("connection closed"); })
             ->on_error([](auto client, const auto &ec) {
-                loge("Error: ", ec.message());
+                loge("error: ", ec.message());
             })
             ->on_accept([](auto client) {
-                logi("Connection accepted");
+                logi("connection accepted");
                 client->run();
-            });
+            })
+            ->start();
+    }
+
+    virtual void TearDown()
+    {
+        m_server->stop();
     }
 
     std::shared_ptr<ns::tcp_server> m_server;
@@ -29,4 +38,16 @@ protected:
 
 TEST_F(server_test, server_accepts_client)
 {
+    // Connect to our m_server, and close the connection when we connect.
+    // This will cause the run loop to stop and exit the function.
+    auto client = ns::make_tcp_client();
+    client
+        ->on_connect([](auto c) {
+            logi("client connected");
+            c->close(); // close client connection
+        })
+        ->on_read([](auto client, auto msg) { logi("read data"); })
+        ->on_close([](auto c) { logi("client closed"); })
+        ->on_error([](auto c, const auto &e) {})
+        ->run("localhost", "6666");
 }

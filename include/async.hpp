@@ -308,7 +308,8 @@ protected:
         boost::asio::error::operation_aborted,
         boost::asio::error::connection_aborted,
         boost::asio::error::connection_reset,
-        boost::asio::error::connection_refused};
+        boost::asio::error::connection_refused,
+        boost::asio::error::eof};
 };
 
 }; // namespace ns
