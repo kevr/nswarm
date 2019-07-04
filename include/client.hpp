@@ -140,15 +140,6 @@ private:
 
 protected:
     ssl::context m_context;
-
-    // Error whitelist - when encountering one of these errors,
-    // we will gracefully close the socket.
-    static inline const std::set<boost::system::error_code> m_errors_wl{
-        boost::asio::ssl::error::stream_truncated,
-        boost::asio::error::operation_aborted,
-        boost::asio::error::connection_aborted,
-        boost::asio::error::connection_reset,
-        boost::asio::error::connection_refused};
 };
 
 // Factory function for creating a tcp_client. Always use this
