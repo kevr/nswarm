@@ -21,3 +21,6 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include )
 # Traverse through src directory
 add_subdirectory( src )
 add_subdirectory( include )
+
+add_custom_target(runtests ${CMAKE_CURRENT_SOURCE_DIR}/scripts/runtest.sh)
+
