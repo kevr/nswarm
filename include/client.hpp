@@ -22,16 +22,16 @@
 namespace ns
 {
 
-class tcp_client : public async_object<tcp_client>
+class tcp_client : public async_io_object<tcp_client>
 {
 public:
     // Create a tcp_client with an independent io_service
     tcp_client()
         : m_io_ptr(std::make_unique<io_service>())
         , m_context(ssl::context::sslv23)
-        , m_socket(std::make_unique<socket>(*m_io_ptr, m_context))
         , m_resolver(*m_io_ptr)
     {
+        m_socket = std::make_unique<socket>(*m_io_ptr, m_context);
         // Override this outside as a user before connecting if you
         // wish to verify ssl certificates.
         set_verify_mode(ssl::context::verify_none);
@@ -41,9 +41,9 @@ public:
     // Create a tcp_client with an external io_service
     tcp_client(io_service &io)
         : m_context(ssl::context::sslv23)
-        , m_socket(std::make_unique<socket>(io, m_context))
         , m_resolver(io)
     {
+        m_socket = std::make_unique<socket>(io, m_context);
         // Override this outside as a user before connecting if you
         // wish to verify ssl certificates.
         set_verify_mode(ssl::context::verify_none);
@@ -58,9 +58,9 @@ public:
     tcp_client(tcp_client &&other)
         : m_io_ptr(std::move(other.m_io_ptr))
         , m_context(std::move(other.m_context))
-        , m_socket(std::move(other.m_socket))
         , m_resolver(std::move(other.m_resolver))
     {
+        m_socket = std::move(other.m_socket);
     }
 
     void operator=(tcp_client &&other)
@@ -73,29 +73,13 @@ public:
 
     ~tcp_client() = default;
 
-    void send(uint16_t type, uint16_t flags = 0,
-              std::optional<std::string> data = std::optional<std::string>())
-    {
-        uint32_t data_size = data ? (*data).size() : 0;
-        uint64_t pkt = serialize_packet(type, flags, data_size);
-        m_os << pkt;
-        if (data)
-            m_os << *data;
-
-        boost::asio::async_write(
-            *m_socket, m_output,
-            boost::asio::transfer_exactly(data_size + sizeof(uint64_t)),
-            boost::bind(&tcp_client::async_on_write, this,
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
-    }
-
     const bool connected() const
     {
         return m_socket->lowest_layer().is_open();
     }
 
-    template <typename VerifyMode> void set_verify_mode(VerifyMode mode)
+    template <typename VerifyMode>
+    void set_verify_mode(VerifyMode mode)
     {
         m_socket->set_verify_mode(mode);
     }
@@ -103,8 +87,7 @@ public:
     void close()
     {
         if (connected()) {
-            boost::system::error_code ec; // No need to check, silently fail
-            m_socket->shutdown(ec);       // ssl stream shutdown
+            async_io_object<tcp_client>::close(); // ssl stream shutdown
         }
     }
 
@@ -132,150 +115,10 @@ private:
 
         tcp::resolver::query query(m_host, m_port);
         m_resolver.async_resolve(
-            query, boost::bind(&tcp_client::on_resolve, this,
-                               boost::asio::placeholders::error,
-                               boost::asio::placeholders::iterator));
-    }
-
-    // boost::asio async callbacks
-    void on_resolve(const boost::system::error_code &ec,
-                    tcp::resolver::iterator iter)
-    {
-        if (!ec) {
-            logd("resolve succeeded");
-            auto ep = iter++;
-            boost::asio::async_connect(
-                m_socket->lowest_layer(), ep,
-                boost::bind(&tcp_client::async_on_connect, this,
-                            boost::asio::placeholders::error, iter));
-            // connect!
-        } else {
-            handle_error(ec, "unable to resolve address: ", ec.message());
-        }
-    }
-
-    void async_on_connect(const boost::system::error_code &ec,
-                          tcp::resolver::iterator iter)
-    {
-        if (!ec) {
-            logd("connect succeeded");
-            m_socket->async_handshake(
-                boost::asio::ssl::stream_base::client,
-                boost::bind(&tcp_client::async_on_handshake, this,
-                            boost::asio::placeholders::error));
-            // handshake
-        } else if (iter != tcp::resolver::iterator()) {
-            logd("connect failed, trying next address");
-            auto ep = iter++;
-            boost::asio::async_connect(
-                m_socket->lowest_layer(), ep,
-                boost::bind(&tcp_client::async_on_connect, this,
-                            boost::asio::placeholders::error, iter));
-        } else {
-            handle_error(ec, "unable to connect: ", ec.message());
-        }
-    }
-
-    void async_on_handshake(const boost::system::error_code &ec)
-    {
-        if (!ec) {
-            logd("handshake succeeded");
-
-            if (m_connect_f)
-                m_connect_f(*this);
-
-            boost::asio::async_read(
-                *m_socket, m_input,
-                boost::asio::transfer_exactly(sizeof(uint64_t)),
-                boost::bind(&tcp_client::async_on_read_packet, this,
-                            boost::asio::placeholders::error));
-        } else {
-            handle_error(ec, "client socket closed while handshaking");
-        }
-    }
-
-    void async_on_read_packet(const boost::system::error_code &ec)
-    {
-        if (!ec) {
-            uint64_t pkt;
-            m_is >> pkt;
-
-            auto [type, flags, size] = deserialize_packet(pkt);
-            logd("received packet, type = ", type, ", flags = ", flags,
-                 " size = ", size);
-
-            if (size > 0) {
-                boost::asio::async_read(
-                    *m_socket, m_input, boost::asio::transfer_exactly(size),
-                    boost::bind(&tcp_client::async_on_read_data, this,
-                                boost::asio::placeholders::error,
-                                boost::asio::placeholders::bytes_transferred,
-                                pkt));
-            } else {
-                if (m_read_f) {
-                    message msg(pkt, std::nullopt);
-                    m_read_f(*this, msg);
-                }
-                boost::asio::async_read(
-                    *m_socket, m_input,
-                    boost::asio::transfer_exactly(sizeof(uint64_t)),
-                    boost::bind(&tcp_client::async_on_read_packet, this,
-                                boost::asio::placeholders::error));
-            }
-        } else {
-            handle_error(ec, "client socket closed while reading data packet");
-        }
-    }
-
-    void async_on_read_data(const boost::system::error_code &ec,
-                            std::size_t bytes, uint64_t pkt)
-    {
-        if (!ec) {
-            std::string data(bytes, '0');
-            m_is.read(&data[0], bytes);
-            logd("received ", bytes, " bytes of data");
-
-            // Construct message, pass to read fn if provided
-            if (m_read_f) {
-                message msg(pkt, data);
-                m_read_f(*this, msg);
-            }
-
-            boost::asio::async_read(
-                *m_socket, m_input,
-                boost::asio::transfer_exactly(sizeof(uint64_t)),
-                boost::bind(&tcp_client::async_on_read_packet, this,
-                            boost::asio::placeholders::error));
-        } else {
-            handle_error(ec, "client socket closed while reading data chunk");
-        }
-    }
-
-    void async_on_write(const boost::system::error_code &ec, std::size_t bytes)
-    {
-        if (!ec) {
-            logd("sent ", bytes, " bytes of data (", bytes - sizeof(uint64_t),
-                 " data size)");
-        } else {
-            handle_error(ec, "client socket closed while writing");
-        }
-    }
-
-    template <typename... Args>
-    void handle_error(const boost::system::error_code &ec, Args &&... args)
-    {
-        // If the error is not in the whitelist, explicitly log it out
-        if (m_errors_wl.find(ec) == m_errors_wl.end()) {
-            loge(ec.message());
-            close();
-            if (m_error_f)
-                m_error_f(*this, ec);
-        } else {
-            logd(std::forward<Args>(args)..., ": ", ec.message());
-            close();
-            if (m_close_f)
-                m_close_f(*this);
-        }
+            query,
+            boost::bind(&tcp_client::async_on_resolve, shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::iterator));
     }
 
     void store_endpoint(const tcp::resolver::endpoint_type ep)
@@ -285,12 +128,6 @@ private:
     }
 
 private:
-    boost::asio::streambuf m_input;
-    std::istream m_is{&m_input};
-
-    boost::asio::streambuf m_output;
-    std::ostream m_os{&m_output};
-
     std::unique_ptr<io_service> m_io_ptr;
 
     std::string m_host;
@@ -303,7 +140,6 @@ private:
 
 protected:
     ssl::context m_context;
-    std::unique_ptr<socket> m_socket;
 
     // Error whitelist - when encountering one of these errors,
     // we will gracefully close the socket.
@@ -314,6 +150,16 @@ protected:
         boost::asio::error::connection_reset,
         boost::asio::error::connection_refused};
 };
+
+// Factory function for creating a tcp_client. Always use this
+// function to create one, since we require that tcp_client
+// is created set into a shared_ptr before running it's async
+// functions.
+template <typename... Args>
+std::shared_ptr<tcp_client> make_tcp_client(Args &&... args)
+{
+    return std::make_shared<tcp_client>(std::forward<Args>(args)...);
+}
 
 }; // namespace ns
 

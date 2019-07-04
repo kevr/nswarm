@@ -86,7 +86,8 @@ public:
         instance().m_debug = enabled;
     }
 
-    template <typename... Args> void out(Args &&... args)
+    template <typename... Args>
+    void out(Args &&... args)
     {
         // New stringstream for this recursive call. We use a standalone ss
         // in order to remain thread-safe.
@@ -94,19 +95,22 @@ public:
         f_out(ss, std::forward<Args>(args)...);
     }
 
-    template <typename... Args> void info(Args &&... args)
+    template <typename... Args>
+    void info(Args &&... args)
     {
         out("[ ", color::green::value, "INFO", color::normal::value, " ] ",
             std::forward<Args>(args)...);
     }
 
-    template <typename... Args> void error(Args &&... args)
+    template <typename... Args>
+    void error(Args &&... args)
     {
         out("[  ", color::red::value, "ERR", color::normal::value, " ] ",
             std::forward<Args>(args)...);
     }
 
-    template <typename... Args> void debug(Args &&... args)
+    template <typename... Args>
+    void debug(Args &&... args)
     {
         if (m_debug) {
             out("[  ", color::yellow::value, "DBG", color::normal::value, " ] ",
@@ -123,7 +127,8 @@ private:
         f_out(ss, std::forward<Args>(args)...);
     }
 
-    template <typename T> void f_out(std::stringstream &ss, T &&arg)
+    template <typename T>
+    void f_out(std::stringstream &ss, T &&arg)
     {
         // Last f_out call, single argument left. Close out and call cout
         // a single time, as to avoid interleaving on console.

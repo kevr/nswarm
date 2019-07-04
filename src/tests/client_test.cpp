@@ -8,17 +8,17 @@ TEST(client_test, google_search)
     logi("Starting client_test...");
 
     ns::io_service io;
-    ns::tcp_client client(io);
+    auto client = ns::make_tcp_client(io);
 
     client
-        .on_connect([](auto &client) {
+        ->on_connect([](auto client) {
             logd("Client connected!");
-            client.close();
+            client->close();
         })
-        .on_read([](auto &client, auto msg) { logd("Message received"); })
-        .on_close([](auto &client) { logd("Client disconnected."); });
+        .on_read([](auto client, auto msg) { logd("Message received"); })
+        .on_close([](auto client) { logd("Client disconnected."); });
 
-    client.run("www.google.com", "443");
+    client->run("www.google.com", "443");
     io.run();
 }
 
@@ -27,18 +27,18 @@ TEST(client_test, internal_io_service)
     ns::cout.set_debug(true);
     logi("Starting client_test...");
 
-    ns::tcp_client client;
+    auto client = ns::make_tcp_client();
 
     client
-        .on_connect([](auto &client) {
+        ->on_connect([](auto client) {
             logd("Client connected!");
-            client.close();
+            client->close();
         })
-        .on_read([](auto &client, auto msg) { logd("Message received"); })
-        .on_close([](auto &client) { logd("Client disconnected."); })
-        .on_error([](auto &client, const auto &ec) { loge(ec.message()); });
+        .on_read([](auto client, auto msg) { logd("Message received"); })
+        .on_close([](auto client) { logd("Client disconnected."); })
+        .on_error([](auto client, const auto &ec) { loge(ec.message()); });
 
-    client.run("www.google.com", "443");
+    client->run("www.google.com", "443");
 }
 
 TEST(client_test, two_shared_io_clients)
@@ -47,28 +47,28 @@ TEST(client_test, two_shared_io_clients)
     logi("Starting client_test...");
 
     ns::io_service io;
-    ns::tcp_client client(io);
+    auto client = ns::make_tcp_client(io);
 
     client
-        .on_connect([](auto &client) {
+        ->on_connect([](auto client) {
             logd("Client connected!");
-            client.close();
+            client->close();
         })
-        .on_read([](auto &client, auto msg) { logd("Message received"); })
-        .on_close([](auto &client) { logd("Client disconnected."); });
+        .on_read([](auto client, auto msg) { logd("Message received"); })
+        .on_close([](auto client) { logd("Client disconnected."); });
 
-    ns::tcp_client client2(io);
+    auto client2 = ns::make_tcp_client(io);
 
     client2
-        .on_connect([](auto &client) {
+        ->on_connect([](auto client) {
             logd("Client2 connected!");
-            client.close();
+            client->close();
         })
-        .on_read([](auto &client, auto msg) { logd("Message2 received"); })
-        .on_close([](auto &client) { logd("Client2 disconnected."); });
+        .on_read([](auto client, auto msg) { logd("Message2 received"); })
+        .on_close([](auto client) { logd("Client2 disconnected."); });
 
-    client.run("www.google.com", "443");
-    client2.run("www.google.com", "443");
+    client->run("www.google.com", "443");
+    client2->run("www.google.com", "443");
     io.run();
 }
 
@@ -77,18 +77,18 @@ TEST(client_test, unable_to_connect)
     ns::cout.set_debug(true);
     logi("Starting client_test...");
 
-    ns::tcp_client client;
+    auto client = ns::make_tcp_client();
 
     client
-        .on_connect([](auto &client) {
+        ->on_connect([](auto client) {
             logd("Client connected!");
-            client.close();
+            client->close();
         })
-        .on_read([](auto &client, auto msg) { logd("Message received"); })
-        .on_close([](auto &client) { logd("Client disconnected."); })
-        .on_error([](auto &client, const auto &ec) { loge(ec.message()); });
+        .on_read([](auto client, auto msg) { logd("Message received"); })
+        .on_close([](auto client) { logd("Client disconnected."); })
+        .on_error([](auto client, const auto &ec) { loge(ec.message()); });
 
-    client.run("googleboogle", "443");
+    client->run("googleboogle", "443");
 }
 
 TEST(client_test, invalid_port)
@@ -96,16 +96,16 @@ TEST(client_test, invalid_port)
     ns::cout.set_debug(true);
     logi("Starting client_test...");
 
-    ns::tcp_client client;
+    auto client = ns::make_tcp_client();
 
     client
-        .on_connect([](auto &client) {
+        ->on_connect([](auto client) {
             logd("Client connected!");
-            client.close();
+            client->close();
         })
-        .on_read([](auto &client, auto msg) { logd("Message received"); })
-        .on_close([](auto &client) { logd("Client disconnected."); })
-        .on_error([](auto &client, const auto &ec) { loge(ec.message()); });
+        .on_read([](auto client, auto msg) { logd("Message received"); })
+        .on_close([](auto client) { logd("Client disconnected."); })
+        .on_error([](auto client, const auto &ec) { loge(ec.message()); });
 
-    client.run("googleboogle", "-1");
+    client->run("googleboogle", "-1");
 }
