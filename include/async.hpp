@@ -44,28 +44,28 @@ template <typename T, typename CallbackT = T>
 class async_object : public std::enable_shared_from_this<T>
 {
 public:
-    async_object &on_read(async_read_function<CallbackT> f)
+    std::shared_ptr<T> on_read(async_read_function<CallbackT> f)
     {
         m_read_f = f;
-        return *this;
+        return this->shared_from_this();
     }
 
-    async_object &on_connect(async_connect_function<CallbackT> f)
+    std::shared_ptr<T> on_connect(async_connect_function<CallbackT> f)
     {
         m_connect_f = f;
-        return *this;
+        return this->shared_from_this();
     }
 
-    async_object &on_close(async_close_function<CallbackT> f)
+    std::shared_ptr<T> on_close(async_close_function<CallbackT> f)
     {
         m_close_f = f;
-        return *this;
+        return this->shared_from_this();
     }
 
-    async_object &on_error(async_error_function<CallbackT> f)
+    std::shared_ptr<T> on_error(async_error_function<CallbackT> f)
     {
         m_error_f = f;
-        return *this;
+        return this->shared_from_this();
     }
 
 protected:
