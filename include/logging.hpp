@@ -137,10 +137,21 @@ private:
     }
 
 private:
-    bool m_debug = false;
+    static inline bool m_debug = false;
+
+public: // public accessor for m_debug
+    static inline bool has_debug_logging()
+    {
+        return m_debug;
+    }
 };
 
 }; // namespace detail
+
+static inline bool has_debug_logging()
+{
+    return ns::detail::logstream::has_debug_logging();
+}
 
 // Create a global reference to our logstream
 static detail::logstream &cout = detail::logstream::instance();
