@@ -13,6 +13,8 @@ Building
 	[user@host] build$ cmake ..
 	...
 	[user@host] build$ make
+	# Run all tests built via `make`
+	[user@host] build$ make runtests
 
 	# Install everything (daemons, sdk libraries and headers)
 	[user@host] build$ sudo make install
