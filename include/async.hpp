@@ -9,10 +9,12 @@
 #include "data.hpp"
 #include "logging.hpp"
 #include "types.hpp"
+#include <algorithm>
 #include <bitset>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <functional>
+#include <iomanip>
 #include <memory>
 #include <set>
 #include <string>
@@ -215,13 +217,12 @@ public:
     }
 
 protected:
-    void start_read()
+    void start_handshake(ssl::stream_base::handshake_type handshake_type)
     {
-        boost::asio::async_read(
-            *m_socket, m_input, boost::asio::transfer_exactly(sizeof(uint64_t)),
-            boost::bind(&T::async_on_read_packet, this->shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
+        m_socket->async_handshake(
+            handshake_type,
+            boost::bind(&T::async_on_handshake, this->shared_from_this(),
+                        boost::asio::placeholders::error));
     }
 
     // boost::asio async callbacks
@@ -246,11 +247,7 @@ protected:
     {
         if (!ec) {
             logd("connect succeeded");
-            m_socket->async_handshake(
-                boost::asio::ssl::stream_base::client,
-                boost::bind(&T::async_on_handshake, this->shared_from_this(),
-                            boost::asio::placeholders::error));
-            // handshake
+            start_handshake(ssl::stream_base::client);
         } else if (iter != tcp::resolver::iterator()) {
             logd("connect failed, trying next address");
             auto ep = iter++;
@@ -353,6 +350,9 @@ protected:
         } else {
             logd(std::forward<Args>(args)..., ": ", ec.message());
             close();
+            logd("tcp handle closed: ", std::showbase, std::internal,
+                 std::setfill('0'), std::hex, std::setw(4),
+                 (unsigned long)&*this->shared_from_this());
             if (this->has_close())
                 this->call_close(this->shared_from_this());
         }
@@ -364,6 +364,16 @@ protected:
             boost::system::error_code ec; // No need to check, silently fail
             m_socket->shutdown(ec);       // ssl stream shutdown
         }
+    }
+
+private:
+    void start_read()
+    {
+        boost::asio::async_read(
+            *m_socket, m_input, boost::asio::transfer_exactly(sizeof(uint64_t)),
+            boost::bind(&T::async_on_read_packet, this->shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
     }
 
 protected:

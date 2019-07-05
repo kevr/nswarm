@@ -36,7 +36,7 @@ public:
         // Override this outside as a user before connecting if you
         // wish to verify ssl certificates.
         set_verify_mode(ssl::context::verify_none);
-        logd("Default object created");
+        logd("default object created");
     }
 
     // Create a tcp_client with an external io_service
@@ -49,7 +49,7 @@ public:
         // Override this outside as a user before connecting if you
         // wish to verify ssl certificates.
         set_verify_mode(ssl::context::verify_none);
-        logd("Object created with external io_service");
+        logd("object created with external io_service");
     }
 
     // We cannot copy clients around.
@@ -75,23 +75,14 @@ public:
 
     ~tcp_client() = default;
 
-    const bool connected() const
-    {
-        return m_socket->lowest_layer().is_open();
-    }
-
     template <typename VerifyMode>
     void set_verify_mode(VerifyMode mode)
     {
         m_socket->set_verify_mode(mode);
     }
 
-    void close()
-    {
-        if (connected()) {
-            async_io_object<tcp_client>::close(); // ssl stream shutdown
-        }
-    }
+    // make this publicly accessible
+    using async_io_object::close;
 
     // run/stop wrap around an optional m_io_ptr
     void run(const std::string &host, const std::string &port)

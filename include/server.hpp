@@ -49,12 +49,7 @@ public:
 
     void run()
     {
-        // Start the ssl handshake which starts reading after
-        m_socket->async_handshake(
-            ssl::stream_base::server,
-            boost::bind(&tcp_connection::async_on_handshake,
-                        this->shared_from_this(),
-                        boost::asio::placeholders::error));
+        start_handshake(ssl::stream_base::server);
     }
 
     // Make this publicly accessible
