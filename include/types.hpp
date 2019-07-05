@@ -10,7 +10,7 @@ using io_service = boost::asio::io_service;
 using tcp = boost::asio::ip::tcp;
 namespace ssl = boost::asio::ssl;
 
-using socket = ssl::stream<tcp::socket>;
+using tcp_socket = ssl::stream<tcp::socket>;
 
 }; // namespace ns
 

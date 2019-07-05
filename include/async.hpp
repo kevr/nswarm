@@ -9,6 +9,7 @@
 #include "data.hpp"
 #include "logging.hpp"
 #include "types.hpp"
+#include <bitset>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <functional>
@@ -20,8 +21,7 @@ namespace ns
 {
 
 template <typename T>
-using async_read_function =
-    std::function<void(std::shared_ptr<T>, const message &)>;
+using async_read_function = std::function<void(std::shared_ptr<T>, data)>;
 
 template <typename T>
 using async_connect_function = std::function<void(std::shared_ptr<T>)>;
@@ -154,6 +154,33 @@ template <typename T>
 class async_io_object : public async_object<T>
 {
 public:
+    // IMPORTANT: This function *must* be called from a derived
+    // object constructor. m_socket is assumed to be valid
+    // after the constructor of any associated object completes.
+    void initialize_socket(io_service &io, ssl::context &ctx)
+    {
+        m_socket = std::make_unique<tcp_socket>(io, ctx);
+    }
+
+    void send(const data &data)
+    {
+        uint64_t pkt = data.packet();
+        m_os.write(reinterpret_cast<char *>(&pkt), sizeof(uint64_t));
+
+        if (has_debug_logging()) {
+            logd("sending bits: ", std::bitset<sizeof(uint64_t) * 8>(pkt));
+        }
+
+        if (data.get_string().size())
+            m_os << data.get_string();
+        boost::asio::async_write(
+            *m_socket, m_output,
+            boost::asio::transfer_exactly(data.size() + sizeof(data.packet())),
+            boost::bind(&T::async_on_write, this->shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    }
+
     void send(uint16_t type, uint16_t flags = 0,
               std::optional<std::string> data = std::optional<std::string>())
     {
@@ -177,7 +204,21 @@ public:
                         boost::asio::placeholders::bytes_transferred));
     }
 
+    tcp_socket &socket()
+    {
+        return *m_socket;
+    }
+
 protected:
+    void start_read()
+    {
+        boost::asio::async_read(
+            *m_socket, m_input, boost::asio::transfer_exactly(sizeof(uint64_t)),
+            boost::bind(&T::async_on_read_packet, this->shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    }
+
     // boost::asio async callbacks
     void async_on_resolve(const boost::system::error_code &ec,
                           tcp::resolver::iterator iter)
@@ -225,24 +266,24 @@ protected:
             if (this->has_connect())
                 this->call_connect(this->shared_from_this());
 
-            boost::asio::async_read(
-                *m_socket, m_input,
-                boost::asio::transfer_exactly(sizeof(uint64_t)),
-                boost::bind(&T::async_on_read_packet, this->shared_from_this(),
-                            boost::asio::placeholders::error));
+            start_read();
         } else {
             handle_error(ec, "client socket closed while handshaking");
         }
     }
 
-    void async_on_read_packet(const boost::system::error_code &ec)
+    void async_on_read_packet(const boost::system::error_code &ec,
+                              std::size_t bytes)
     {
         if (!ec) {
-            uint64_t pkt;
-            m_is >> pkt;
+
+            uint64_t pkt = 0;
+            m_is.read(reinterpret_cast<char *>(&pkt), sizeof(uint64_t));
+            logd("packet received (bits): ",
+                 std::bitset<sizeof(uint64_t) * 8>(pkt));
 
             auto [type, flags, size] = deserialize_packet(pkt);
-            logd("received packet, type = ", type, ", flags = ", flags,
+            logd("deserialized packet: type = ", type, ", flags = ", flags,
                  " size = ", size);
 
             if (size > 0) {
@@ -253,16 +294,13 @@ protected:
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred, pkt));
             } else {
+                // IMPORTANT: This is all wrong. We need better overrides for
+                // ns::data
                 if (this->has_read()) {
-                    message msg(pkt, std::nullopt);
-                    this->call_read(this->shared_from_this(), msg);
+                    data x(pkt);
+                    this->call_read(this->shared_from_this(), x);
                 }
-                boost::asio::async_read(
-                    *m_socket, m_input,
-                    boost::asio::transfer_exactly(sizeof(uint64_t)),
-                    boost::bind(&T::async_on_read_packet,
-                                this->shared_from_this(),
-                                boost::asio::placeholders::error));
+                start_read();
             }
         } else {
             handle_error(ec, "client socket closed while reading data packet");
@@ -279,15 +317,10 @@ protected:
 
             // Construct message, pass to read fn if provided
             if (this->has_read()) {
-                message msg(pkt, data);
-                this->call_read(this->shared_from_this(), msg);
+                class data x(pkt, 0, data);
+                this->call_read(this->shared_from_this(), x);
             }
-
-            boost::asio::async_read(
-                *m_socket, m_input,
-                boost::asio::transfer_exactly(sizeof(uint64_t)),
-                boost::bind(&T::async_on_read_packet, this->shared_from_this(),
-                            boost::asio::placeholders::error));
+            start_read();
         } else {
             handle_error(ec, "client socket closed while reading data chunk");
         }
@@ -333,7 +366,7 @@ protected:
     boost::asio::streambuf m_output;
     std::ostream m_os{&m_output};
 
-    std::unique_ptr<socket> m_socket;
+    std::unique_ptr<tcp_socket> m_socket;
 
     // Error whitelist - when encountering one of these errors,
     // we will gracefully close the socket.

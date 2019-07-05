@@ -32,7 +32,7 @@ public:
 
     tcp_connection(io_service &io, ssl::context &ctx)
     {
-        m_socket = std::make_unique<ns::socket>(io, ctx);
+        m_socket = std::make_unique<tcp_socket>(io, ctx);
     }
 
     ~tcp_connection() = default;
@@ -50,7 +50,7 @@ public:
         m_socket = std::move(other.m_socket);
     }
 
-    ns::socket &socket()
+    tcp_socket &socket()
     {
         return *m_socket;
     }
@@ -63,6 +63,18 @@ public:
             boost::bind(&tcp_connection::async_on_handshake,
                         this->shared_from_this(),
                         boost::asio::placeholders::error));
+    }
+
+    bool connected() const
+    {
+        return m_socket->lowest_layer().is_open();
+    }
+
+    void close()
+    {
+        if (connected()) {
+            async_io_object<tcp_connection>::close();
+        }
     }
 
 }; // class tcp_connection

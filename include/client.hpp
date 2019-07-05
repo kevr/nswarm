@@ -31,7 +31,8 @@ public:
         , m_context(ssl::context::sslv23)
         , m_resolver(*m_io_ptr)
     {
-        m_socket = std::make_unique<socket>(*m_io_ptr, m_context);
+        initialize_socket(*m_io_ptr, m_context);
+
         // Override this outside as a user before connecting if you
         // wish to verify ssl certificates.
         set_verify_mode(ssl::context::verify_none);
@@ -43,7 +44,8 @@ public:
         : m_context(ssl::context::sslv23)
         , m_resolver(io)
     {
-        m_socket = std::make_unique<socket>(io, m_context);
+        initialize_socket(m_resolver.get_io_service(), m_context);
+
         // Override this outside as a user before connecting if you
         // wish to verify ssl certificates.
         set_verify_mode(ssl::context::verify_none);
