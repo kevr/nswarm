@@ -85,7 +85,9 @@ TEST(client_test, unable_to_connect)
         })
         ->on_read([](auto client, auto msg) { logd("Message received"); })
         ->on_close([](auto client) { logd("Client disconnected."); })
-        ->on_error([](auto client, const auto &ec) { loge(ec.message()); })
+        ->on_error([](auto client, const auto &ec) {
+            EXPECT_EQ(ec, boost::asio::error::host_not_found);
+        })
         ->run("googleboogle", "443");
 }
 
@@ -103,6 +105,8 @@ TEST(client_test, invalid_port)
         })
         ->on_read([](auto client, auto msg) { logd("Message received"); })
         ->on_close([](auto client) { logd("Client disconnected."); })
-        ->on_error([](auto client, const auto &ec) { loge(ec.message()); })
+        ->on_error([](auto client, const auto &ec) {
+            EXPECT_EQ(ec, boost::asio::error::service_not_found);
+        })
         ->run("googleboogle", "-1");
 }
