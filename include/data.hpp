@@ -10,13 +10,14 @@ namespace ns
 {
 
 enum message_type : uint16_t {
-    auth = 1,  // Auth: node -> cluster, api -> cluster
-    provide,   // Provide: node -> host
-    subscribe, // Subscribe: node -> host
-    task,      // Task: api -> host -> node -> host -> api
+    auth = 1,  // Authentication: node -> cluster, api -> cluster
+    provide,   // Provide a method: node -> host
+    subscribe, // Subscribe to an event: node -> host
+    task,      // Method or event task: api -> host -> node -> host -> api
 
 };
 
+// [16 bytes message_type][16 bytes arbitrary_flags][32 bytes data_size]
 inline uint64_t serialize_packet(uint16_t a, uint16_t b, uint32_t c)
 {
     uint64_t data = 0;
