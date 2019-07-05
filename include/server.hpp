@@ -22,22 +22,22 @@ namespace ns
 class tcp_connection : public async_io_object<tcp_connection>
 {
 public:
-    tcp_connection(io_service &io, ssl::context &ctx)
+    tcp_connection(io_service &io, ssl::context &ctx) noexcept
     {
-        m_socket = std::make_unique<tcp_socket>(io, ctx);
+        initialize_socket(io, ctx);
     }
 
-    ~tcp_connection() = default;
+    ~tcp_connection() noexcept = default;
 
     tcp_connection(const tcp_connection &) = delete;
     void operator=(const tcp_connection &) = delete;
 
-    tcp_connection(tcp_connection &&other)
+    tcp_connection(tcp_connection &&other) noexcept
     {
         *this = std::move(other);
     }
 
-    void operator=(tcp_connection &&other)
+    void operator=(tcp_connection &&other) noexcept
     {
         m_socket = std::move(other.m_socket);
     }
@@ -47,7 +47,7 @@ public:
         return *m_socket;
     }
 
-    void run()
+    void run() noexcept
     {
         start_handshake(ssl::stream_base::server);
     }
@@ -66,23 +66,23 @@ std::shared_ptr<tcp_connection> make_tcp_connection(Args &&... args)
 class tcp_server : public async_object<tcp_server, tcp_connection>
 {
 public:
-    tcp_server(unsigned short port)
+    tcp_server(unsigned short port) noexcept
         : m_io_ptr(std::make_unique<io_service>())
         , m_context(ssl::context::sslv23)
         , m_acceptor(*m_io_ptr, tcp::endpoint(tcp::v4(), port))
     {
     }
 
-    tcp_server(io_service &io, unsigned short port)
+    tcp_server(io_service &io, unsigned short port) noexcept
         : m_context(ssl::context::sslv23)
         , m_acceptor(io, tcp::endpoint(tcp::v4(), port))
     {
     }
 
-    ~tcp_server() = default;
+    ~tcp_server() noexcept = default;
 
     std::shared_ptr<tcp_server> use_certificate(const std::string &cert,
-                                                const std::string &key)
+                                                const std::string &key) noexcept
     {
         m_context.use_certificate_file(cert, ssl::context::file_format::pem);
         m_context.use_private_key_file(key, ssl::context::file_format::pem);
@@ -144,23 +144,23 @@ public:
 
 protected:
     template <typename... Args>
-    void call_accept(Args &&... args)
+    void call_accept(Args &&... args) noexcept
     {
         m_accept_f(std::forward<Args>(args)...);
     }
 
-    bool has_accept() const
+    bool has_accept() const noexcept
     {
         return m_accept_f != nullptr;
     }
 
     template <typename... Args>
-    void call_server_error(Args &&... args)
+    void call_server_error(Args &&... args) noexcept
     {
         m_server_error_f(std::forward<Args>(args)...);
     }
 
-    bool has_server_error() const
+    bool has_server_error() const noexcept
     {
         return m_server_error_f != nullptr;
     }
@@ -177,7 +177,7 @@ private:
     }
 
     void async_on_accept(const boost::system::error_code &ec,
-                         std::shared_ptr<tcp_connection> client)
+                         std::shared_ptr<tcp_connection> client) noexcept
     {
         if (!ec) {
             logd("client accepted");

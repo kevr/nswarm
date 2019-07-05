@@ -26,7 +26,7 @@ class tcp_client : public async_io_object<tcp_client>
 {
 public:
     // Create a tcp_client with an independent io_service
-    tcp_client()
+    tcp_client() noexcept
         : m_io_ptr(std::make_unique<io_service>())
         , m_context(ssl::context::sslv23)
         , m_resolver(*m_io_ptr)
@@ -40,7 +40,7 @@ public:
     }
 
     // Create a tcp_client with an external io_service
-    tcp_client(io_service &io)
+    tcp_client(io_service &io) noexcept
         : m_context(ssl::context::sslv23)
         , m_resolver(io)
     {
@@ -57,7 +57,7 @@ public:
     void operator=(const tcp_client &) = delete;
 
     // Provide move construction and assignment
-    tcp_client(tcp_client &&other)
+    tcp_client(tcp_client &&other) noexcept
         : m_io_ptr(std::move(other.m_io_ptr))
         , m_context(std::move(other.m_context))
         , m_resolver(std::move(other.m_resolver))
@@ -65,7 +65,7 @@ public:
         m_socket = std::move(other.m_socket);
     }
 
-    void operator=(tcp_client &&other)
+    void operator=(tcp_client &&other) noexcept
     {
         m_io_ptr = std::move(other.m_io_ptr);
         m_context = std::move(other.m_context);
@@ -73,7 +73,7 @@ public:
         m_resolver = std::move(other.m_resolver);
     }
 
-    ~tcp_client() = default;
+    ~tcp_client() noexcept = default;
 
     template <typename VerifyMode>
     void set_verify_mode(VerifyMode mode)
@@ -85,7 +85,7 @@ public:
     using async_io_object::close;
 
     // run/stop wrap around an optional m_io_ptr
-    void run(const std::string &host, const std::string &port)
+    void run(const std::string &host, const std::string &port) noexcept
     {
         connect(host, port);
         if (m_io_ptr)
@@ -101,7 +101,7 @@ public:
     }
 
 private:
-    void connect(const std::string &host, const std::string &port)
+    void connect(const std::string &host, const std::string &port) noexcept
     {
         m_host = host;
         m_port = port;
@@ -114,7 +114,7 @@ private:
                         boost::asio::placeholders::iterator));
     }
 
-    void store_endpoint(const tcp::resolver::endpoint_type ep)
+    void store_endpoint(const tcp::resolver::endpoint_type ep) noexcept
     {
         m_remote_host = "";
         m_remote_port = "";

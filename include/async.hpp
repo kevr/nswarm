@@ -72,45 +72,45 @@ public:
 
 protected:
     template <typename... Args>
-    void call_read(Args &&... args)
+    void call_read(Args &&... args) noexcept
     {
         m_read_f(std::forward<Args>(args)...);
     }
 
-    bool has_read() const
+    bool has_read() const noexcept
     {
         return m_read_f != nullptr;
     }
 
     template <typename... Args>
-    void call_connect(Args &&... args)
+    void call_connect(Args &&... args) noexcept
     {
         m_connect_f(std::forward<Args>(args)...);
     }
 
-    bool has_connect() const
+    bool has_connect() const noexcept
     {
         return m_connect_f != nullptr;
     }
 
     template <typename... Args>
-    void call_close(Args &&... args)
+    void call_close(Args &&... args) noexcept
     {
         m_close_f(std::forward<Args>(args)...);
     }
 
-    bool has_close() const
+    bool has_close() const noexcept
     {
         return m_close_f != nullptr;
     }
 
     template <typename... Args>
-    void call_error(Args &&... args)
+    void call_error(Args &&... args) noexcept
     {
         m_error_f(std::forward<Args>(args)...);
     }
 
-    bool has_error() const
+    bool has_error() const noexcept
     {
         return m_error_f != nullptr;
     }
@@ -164,7 +164,7 @@ public:
         m_socket = std::make_unique<tcp_socket>(io, ctx);
     }
 
-    void send(const data &data)
+    void send(const data &data) noexcept
     {
         uint64_t pkt = data.packet();
         m_os.write(reinterpret_cast<char *>(&pkt), sizeof(uint64_t));
@@ -217,7 +217,8 @@ public:
     }
 
 protected:
-    void start_handshake(ssl::stream_base::handshake_type handshake_type)
+    void
+    start_handshake(ssl::stream_base::handshake_type handshake_type) noexcept
     {
         m_socket->async_handshake(
             handshake_type,
@@ -227,7 +228,7 @@ protected:
 
     // boost::asio async callbacks
     void async_on_resolve(const boost::system::error_code &ec,
-                          tcp::resolver::iterator iter)
+                          tcp::resolver::iterator iter) noexcept
     {
         if (!ec) {
             logd("resolve succeeded");
@@ -243,7 +244,7 @@ protected:
     }
 
     void async_on_connect(const boost::system::error_code &ec,
-                          tcp::resolver::iterator iter)
+                          tcp::resolver::iterator iter) noexcept
     {
         if (!ec) {
             logd("connect succeeded");
@@ -260,7 +261,7 @@ protected:
         }
     }
 
-    void async_on_handshake(const boost::system::error_code &ec)
+    void async_on_handshake(const boost::system::error_code &ec) noexcept
     {
         if (!ec) {
             logd("handshake succeeded");
@@ -275,7 +276,7 @@ protected:
     }
 
     void async_on_read_packet(const boost::system::error_code &ec,
-                              std::size_t bytes)
+                              std::size_t bytes) noexcept
     {
         if (!ec) {
 
@@ -310,7 +311,7 @@ protected:
     }
 
     void async_on_read_data(const boost::system::error_code &ec,
-                            std::size_t bytes, uint64_t pkt)
+                            std::size_t bytes, uint64_t pkt) noexcept
     {
         if (!ec) {
             std::string data(bytes, '0');
@@ -328,7 +329,8 @@ protected:
         }
     }
 
-    void async_on_write(const boost::system::error_code &ec, std::size_t bytes)
+    void async_on_write(const boost::system::error_code &ec,
+                        std::size_t bytes) noexcept
     {
         if (!ec) {
             logd("sent ", bytes, " bytes of data (", bytes - sizeof(uint64_t),
@@ -339,7 +341,8 @@ protected:
     }
 
     template <typename... Args>
-    void handle_error(const boost::system::error_code &ec, Args &&... args)
+    void handle_error(const boost::system::error_code &ec,
+                      Args &&... args) noexcept
     {
         // If the error is not in the whitelist, explicitly log it out
         if (m_errors_wl.find(ec) == m_errors_wl.end()) {
@@ -367,7 +370,7 @@ protected:
     }
 
 private:
-    void start_read()
+    void start_read() noexcept
     {
         boost::asio::async_read(
             *m_socket, m_input, boost::asio::transfer_exactly(sizeof(uint64_t)),
