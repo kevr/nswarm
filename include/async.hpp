@@ -209,6 +209,11 @@ public:
         return *m_socket;
     }
 
+    const bool connected() const
+    {
+        return m_socket->lowest_layer().is_open();
+    }
+
 protected:
     void start_read()
     {
@@ -355,8 +360,10 @@ protected:
 
     void close()
     {
-        boost::system::error_code ec; // No need to check, silently fail
-        m_socket->shutdown(ec);       // ssl stream shutdown
+        if (connected()) {
+            boost::system::error_code ec; // No need to check, silently fail
+            m_socket->shutdown(ec);       // ssl stream shutdown
+        }
     }
 
 protected:

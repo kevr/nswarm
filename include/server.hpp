@@ -22,14 +22,6 @@ namespace ns
 class tcp_connection : public async_io_object<tcp_connection>
 {
 public:
-    // We do not allow on_connect here. the server accepts and
-    // the user can choose to start the tcp_connection at that point.
-    //
-    // Example: server->on_accept([](auto c) { c->run(); });
-    //
-    std::shared_ptr<tcp_connection>
-        on_connect(async_connect_function<tcp_connection>) = delete;
-
     tcp_connection(io_service &io, ssl::context &ctx)
     {
         m_socket = std::make_unique<tcp_socket>(io, ctx);
@@ -65,17 +57,8 @@ public:
                         boost::asio::placeholders::error));
     }
 
-    bool connected() const
-    {
-        return m_socket->lowest_layer().is_open();
-    }
-
-    void close()
-    {
-        if (connected()) {
-            async_io_object<tcp_connection>::close();
-        }
-    }
+    // Make this publicly accessible
+    using async_io_object::close;
 
 }; // class tcp_connection
 
@@ -204,6 +187,10 @@ private:
         if (!ec) {
             logd("client accepted");
 
+            if (this->has_connect())
+                client->on_connect(
+                    [this](auto client) { this->call_connect(client); });
+
             if (this->has_read())
                 client->on_read([&](auto client, auto msg) {
                     this->call_read(client, msg);
@@ -211,10 +198,10 @@ private:
 
             if (this->has_close())
                 client->on_close(
-                    [&](auto client) { this->call_close(client); });
+                    [this](auto client) { this->call_close(client); });
 
             if (this->has_error())
-                client->on_error([&](auto client, const auto &ec) {
+                client->on_error([this](auto client, const auto &ec) {
                     this->call_error(client, ec);
                 });
 
