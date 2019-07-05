@@ -208,7 +208,10 @@ private:
             if (has_accept())
                 call_accept(client); // client->run() should be called in the
                                      // accept function
+            else
+                logd("connection accepted, but no callback was provided");
 
+            // Go for another accept loop and wait for a connection
             try_accept();
         } else {
             loge(ec.message());
