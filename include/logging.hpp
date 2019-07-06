@@ -10,6 +10,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <libgen.h>
 #include <map>
 #include <mutex>
 #include <sstream>
@@ -86,7 +87,6 @@ public:
     static void set_debug(bool enabled)
     {
         instance().m_debug = enabled;
-        instance().debug("enabled debug logging");
     }
 
     template <typename... Args>
@@ -173,19 +173,19 @@ static detail::logstream &cout = detail::logstream::instance();
 static inline const std::string p_secret_log_addr = "";
 
 #define logi(...)                                                              \
-    ns::cout.info(basename((char *)__FILE__), '(', __LINE__, ") ",             \
+    ns::cout.info(::basename((char *)__FILE__), '(', __LINE__, ") ",           \
                   p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] "    \
                                            : "",                               \
                   __func__, "(): ", __VA_ARGS__);
 
 #define logd(...)                                                              \
-    ns::cout.debug(basename((char *)__FILE__), '(', __LINE__, ") ",            \
+    ns::cout.debug(::basename((char *)__FILE__), '(', __LINE__, ") ",          \
                    p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] "   \
                                             : "",                              \
                    __func__, "(): ", __VA_ARGS__);
 
 #define loge(...)                                                              \
-    ns::cout.error(basename((char *)__FILE__), '(', __LINE__, ") ",            \
+    ns::cout.error(::basename((char *)__FILE__), '(', __LINE__, ") ",          \
                    p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] "   \
                                             : "",                              \
                    __func__, "(): ", __VA_ARGS__);
@@ -201,5 +201,15 @@ const std::string hexify(unsigned long value)
 // set_log_address;
 #define set_log_address                                                        \
     const std::string p_secret_log_addr = hexify((unsigned long)&*this)
+
+namespace ns
+{
+static inline void set_debug_logging(bool enabled)
+{
+    ns::detail::logstream::instance().set_debug(enabled);
+    if (enabled)
+        logd("enabled debug logging");
+}
+}; // namespace ns
 
 #endif

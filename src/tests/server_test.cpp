@@ -7,7 +7,7 @@ class server_test : public ::testing::Test
 protected:
     virtual void SetUp()
     {
-        ns::cout.set_debug(true);
+        ns::set_debug_logging(true);
 
         m_server = ns::make_tcp_server(6666);
 

@@ -22,7 +22,7 @@ int main(int argc, const char *argv[])
 
     // initialize debug logging if -d was provided
     if (opt.exists("debug")) {
-        ns::cout.set_debug(true);
+        ns::set_debug_logging(true);
     }
 
     // redirect stdout to logfile if --log was provided
@@ -35,6 +35,6 @@ int main(int argc, const char *argv[])
         }
     }
 
-    logi("logging started");
+    logi("started");
     return 0;
 }

@@ -4,7 +4,7 @@
 
 TEST(client_test, google_search)
 {
-    ns::cout.set_debug(true);
+    ns::set_debug_logging(true);
 
     ns::io_service io;
     auto client = ns::make_tcp_client(io);
@@ -23,7 +23,7 @@ TEST(client_test, google_search)
 
 TEST(client_test, internal_io_service)
 {
-    ns::cout.set_debug(true);
+    ns::set_debug_logging(true);
 
     auto client = ns::make_tcp_client();
 
@@ -40,7 +40,7 @@ TEST(client_test, internal_io_service)
 
 TEST(client_test, two_shared_io_clients)
 {
-    ns::cout.set_debug(true);
+    ns::set_debug_logging(true);
 
     ns::io_service io;
     auto client = ns::make_tcp_client(io);
@@ -70,7 +70,7 @@ TEST(client_test, two_shared_io_clients)
 
 TEST(client_test, unable_to_connect)
 {
-    ns::cout.set_debug(true);
+    ns::set_debug_logging(true);
 
     auto client = ns::make_tcp_client();
 
@@ -89,7 +89,7 @@ TEST(client_test, unable_to_connect)
 
 TEST(client_test, invalid_port)
 {
-    ns::cout.set_debug(true);
+    ns::set_debug_logging(true);
 
     auto client = ns::make_tcp_client();
 

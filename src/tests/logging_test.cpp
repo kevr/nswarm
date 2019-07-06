@@ -13,7 +13,7 @@
 
 TEST(logging_test, logstream)
 {
-    ns::cout.set_debug(true);
+    ns::set_debug_logging(true);
 
     std::vector<std::shared_ptr<std::thread>> jobs = {
         std::make_shared<std::thread>(

@@ -12,7 +12,7 @@
 
 TEST(program_options, executable_name)
 {
-    ns::cout.set_debug(true);
+    ns::set_debug_logging(true);
     int argc = 1;
     const char *argv[1] = {
         "./program_options_test",
@@ -25,7 +25,7 @@ TEST(program_options, executable_name)
 
 TEST(program_options, abs_executable_name)
 {
-    ns::cout.set_debug(true);
+    ns::set_debug_logging(true);
     int argc = 1;
     const char *argv[1] = {
         "/usr/bin/program_options_test",
