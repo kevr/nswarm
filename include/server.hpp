@@ -143,7 +143,8 @@ public:
     void stop()
     {
         logd("stopping thread");
-        m_io_ptr->stop();
+        if (m_io_ptr)
+            m_io_ptr->stop();
         m_thread.join();
     }
 
