@@ -119,6 +119,15 @@ public:
         }
     }
 
+    bool redirect(const std::string &path)
+    {
+        FILE *chk = fopen(path.c_str(), "a+");
+        if (!chk)
+            return false;
+        fclose(chk);
+        return freopen(path.c_str(), "a+", stdout) != nullptr;
+    }
+
 private:
     template <typename T, typename... Args>
     void f_out(std::stringstream &ss, T &&arg, Args &&... args)

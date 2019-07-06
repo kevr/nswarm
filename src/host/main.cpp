@@ -15,15 +15,26 @@ int main(int argc, const char *argv[])
 {
     ns::program_options opt(argc, argv, "Daemon options");
 
-    if (opt.exists("help")) {
-        std::cout << opt.usage() << std::endl << std::endl << opt;
-        return 1;
+    // If unable to parse or -h was provided, print help output
+    if (!opt || opt.exists("help")) {
+        return opt.help();
     }
 
-    // Enable debug if -d provided
+    // initialize debug logging if -d was provided
     if (opt.exists("debug")) {
         ns::cout.set_debug(true);
     }
 
+    // redirect stdout to logfile if --log was provided
+    if (opt.exists("log")) {
+        logd("--log ", opt.get<std::string>("log"), " found");
+        logd("redirecting logs to ", opt.get<std::string>("log"));
+        if (!ns::cout.redirect(opt.get<std::string>("log"))) {
+            loge("unable to redirect logs to ", opt.get<std::string>("log"));
+            return 1;
+        }
+    }
+
+    logi("logging started");
     return 0;
 }

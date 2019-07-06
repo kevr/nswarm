@@ -12,6 +12,7 @@
 
 // c++ standard library
 #include <boost/program_options.hpp>
+#include <iostream>
 #include <map>
 #include <string>
 #include <utility>
@@ -53,10 +54,16 @@ public:
     void parse(int argc, const char *argv[])
     {
         m_executable = basename(const_cast<char *>(argv[0]));
-        boost::program_options::store(
-            boost::program_options::parse_command_line(argc, argv, m_desc),
-            m_vm);
-        boost::program_options::notify(m_vm);
+        try {
+            boost::program_options::store(
+                boost::program_options::parse_command_line(argc, argv, m_desc),
+                m_vm);
+            boost::program_options::notify(m_vm);
+            m_valid = true;
+        } catch (std::exception &e) {
+            std::cout << "error: " << e.what() << std::endl << std::endl;
+            m_valid = false;
+        }
     }
 
     template <typename T>
@@ -81,7 +88,7 @@ public:
     }
 
     template <typename T>
-    T at(const std::string &key) const
+    T get(const std::string &key) const
     {
         return m_vm.at(key).as<T>();
     }
@@ -96,14 +103,27 @@ public:
         return "usage: " + m_executable + " [-h] [-d]";
     }
 
+    operator bool() const
+    {
+        return m_valid;
+    }
+
+    int help()
+    {
+        std::cout << usage() << std::endl << std::endl << *this << std::endl;
+        return 1;
+    }
+
 private:
     void init()
     {
         add_option("help,h", "Print help message");
         add_option("debug,d", "Enable debug logging");
+        add_option<std::string>("log", "Path to optional logfile");
     }
 
 private:
+    bool m_valid = true;
     std::string m_executable;
 
     boost::program_options::variables_map m_vm;
