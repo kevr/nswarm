@@ -39,9 +39,6 @@ using async_error_function =
 template <typename T>
 using async_accept_function = std::function<void(std::shared_ptr<T>)>;
 
-template <typename T>
-using async_auth_function = std::function<void(std::shared_ptr<T>, data)>;
-
 /**
  * \class async_object
  * \brief Provides async callback functions to a derived class

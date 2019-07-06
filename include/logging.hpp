@@ -202,6 +202,9 @@ const std::string hexify(unsigned long value)
 #define set_log_address                                                        \
     const std::string p_secret_log_addr = hexify((unsigned long)&*this)
 
+#define set_mutable_log_address                                                \
+    std::string p_secret_log_addr = hexify((unsigned long)&*this)
+
 namespace ns
 {
 static inline void set_debug_logging(bool enabled)
