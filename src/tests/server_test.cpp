@@ -48,6 +48,22 @@ TEST_F(server_test, server_accepts_client)
     client
         ->on_connect([](auto c) {
             logi("client connected");
+            c->close();
+        })
+        ->on_read([](auto client, auto data) { logi("read data"); })
+        ->on_close([](auto c) { logi("client closed"); })
+        ->on_error([](auto c, const auto &e) {})
+        ->run("localhost", "6666");
+}
+
+TEST_F(server_test, server_serializes_properly)
+{
+    // Connect to our m_server, and close the connection when we connect.
+    // This will cause the run loop to stop and exit the function.
+    auto client = ns::make_tcp_client();
+    client
+        ->on_connect([](auto c) {
+            logi("client connected");
             ns::data x(ns::data_type::auth, 0);
             c->send(x);
         })
