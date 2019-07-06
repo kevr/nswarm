@@ -19,55 +19,56 @@
 namespace ns
 {
 
-class tcp_connection : public async_io_object<tcp_connection>
+template <typename T>
+class connection : public async_io_object<T>
 {
 public:
-    tcp_connection(io_service &io, ssl::context &ctx) noexcept
+    connection(io_service &io, ssl::context &ctx) noexcept
     {
-        initialize_socket(io, ctx);
+        this->initialize_socket(io, ctx);
     }
 
-    ~tcp_connection() noexcept = default;
+    ~connection() noexcept = default;
 
-    tcp_connection(const tcp_connection &) = delete;
-    void operator=(const tcp_connection &) = delete;
+    connection(const connection &) = delete;
+    void operator=(const connection &) = delete;
 
-    tcp_connection(tcp_connection &&other) noexcept
+    connection(connection &&other) noexcept
     {
         *this = std::move(other);
     }
 
-    void operator=(tcp_connection &&other) noexcept
+    void operator=(connection &&other) noexcept
     {
-        m_socket = std::move(other.m_socket);
+        this->m_socket = std::move(other.m_socket);
     }
 
     tcp_socket &socket()
     {
-        return *m_socket;
+        return *this->m_socket;
     }
 
     void run() noexcept
     {
-        start_handshake(ssl::stream_base::server);
+        this->start_handshake(ssl::stream_base::server);
     }
 
     // Make this publicly accessible
-    using async_io_object::close;
+    using async_io_object<T>::close;
 
 protected:
     set_log_address;
-}; // class tcp_connection
+}; // class connection
 
-template <typename... Args>
-std::shared_ptr<tcp_connection> make_tcp_connection(Args &&... args)
+template <typename T, typename... Args>
+std::shared_ptr<T> make_connection(Args &&... args)
 {
-    return std::make_shared<tcp_connection>(std::forward<Args>(args)...);
+    return std::make_shared<connection>(std::forward<Args>(args)...);
 }
 
 // T = connection type
-template <typename T = tcp_connection>
-class tcp_server : public async_object<tcp_server<T>, T>
+template <typename T>
+class tcp_server : public async_object<T, tcp_server<T>>
 {
 public:
     tcp_server(unsigned short port) noexcept
@@ -85,12 +86,12 @@ public:
 
     ~tcp_server() noexcept = default;
 
-    std::shared_ptr<tcp_server> use_certificate(const std::string &cert,
-                                                const std::string &key) noexcept
+    tcp_server &use_certificate(const std::string &cert,
+                                const std::string &key) noexcept
     {
         m_context.use_certificate_file(cert, ssl::context::file_format::pem);
         m_context.use_private_key_file(key, ssl::context::file_format::pem);
-        return this->shared_from_this();
+        return *this;
     }
 
     // Since our standard on_error will be propagated to
@@ -104,18 +105,18 @@ public:
     //         ilog("Server had an error");
     //     });
     //
-    std::shared_ptr<tcp_server>
-    on_server_error(async_error_function<tcp_server> error_f)
+    tcp_server &on_server_error(
+        std::function<void(tcp_server *, const boost::system::error_code &)>
+            error_f)
     {
         m_server_error_f = error_f;
-        return this->shared_from_this();
+        return *this;
     }
 
-    std::shared_ptr<tcp_server>
-    on_accept(async_accept_function<tcp_connection> accept_f)
+    tcp_server &on_accept(async_accept_function<T> accept_f)
     {
         m_accept_f = accept_f;
-        return this->shared_from_this();
+        return *this;
     }
 
     void run()
@@ -173,7 +174,7 @@ private:
     void try_accept()
     {
         auto client =
-            make_tcp_connection(m_acceptor.get_io_service(), m_context);
+            std::make_shared<T>(m_acceptor.get_io_service(), m_context);
         m_acceptor.async_accept(client->socket().lowest_layer(),
                                 boost::bind(&tcp_server::async_on_accept, this,
                                             boost::asio::placeholders::error,
@@ -181,28 +182,24 @@ private:
     }
 
     void async_on_accept(const boost::system::error_code &ec,
-                         std::shared_ptr<tcp_connection> client) noexcept
+                         std::shared_ptr<T> client) noexcept
     {
         if (!ec) {
             logd("client accepted");
 
             if (this->has_connect())
-                client->on_connect(
-                    [this](auto client) { this->call_connect(client); });
+                client->on_connect([=](auto c) { this->call_connect(c); });
 
             if (this->has_read())
-                client->on_read([&](auto client, auto msg) {
-                    this->call_read(client, msg);
-                });
+                client->on_read(
+                    [=](auto c, auto msg) { this->call_read(c, msg); });
 
             if (this->has_close())
-                client->on_close(
-                    [this](auto client) { this->call_close(client); });
+                client->on_close([=](auto c) { this->call_close(c); });
 
             if (this->has_error())
-                client->on_error([this](auto client, const auto &ec) {
-                    this->call_error(client, ec);
-                });
+                client->on_error(
+                    [=](auto c, const auto &ec) { this->call_error(c, ec); });
 
             if (has_accept())
                 call_accept(client); // client->run() should be called in the
@@ -215,17 +212,17 @@ private:
         } else {
             loge(ec.message());
             if (this->has_server_error())
-                this->call_server_error(this->shared_from_this(), ec);
+                this->call_server_error(this, ec);
         }
     }
 
 private:
     std::unique_ptr<io_service> m_io_ptr;
 
-    async_accept_function<tcp_connection> m_accept_f;
+    async_accept_function<T> m_accept_f;
 
-    // A special callback just for server errors.
-    async_error_function<tcp_server> m_server_error_f;
+    std::function<void(tcp_server *, const boost::system::error_code &)>
+        m_server_error_f;
 
     std::thread m_thread;
 
@@ -236,10 +233,18 @@ protected:
     set_log_address;
 }; // class tcp_server
 
-template <typename... Args>
-std::shared_ptr<tcp_server<>> make_tcp_server(Args &&... args)
+// raw tcp_connection. other classes should derive from connection<DerivedT>
+class tcp_connection : public connection<tcp_connection>
 {
-    return std::make_shared<tcp_server<>>(std::forward<Args>(args)...);
+public:
+    using connection::connection;
+};
+
+// T = connection type
+template <typename T = tcp_connection, typename... Args>
+std::shared_ptr<tcp_server<T>> make_tcp_server(Args &&... args)
+{
+    return std::make_shared<tcp_server<T>>(std::forward<Args>(args)...);
 }
 
 }; // namespace ns

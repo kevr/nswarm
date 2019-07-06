@@ -43,32 +43,34 @@ using async_accept_function = std::function<void(std::shared_ptr<T>)>;
  * \class async_object
  * \brief Provides async callback functions to a derived class
  **/
-template <typename T, typename CallbackT = T>
-class async_object : public std::enable_shared_from_this<T>
+// T = connection type
+// U = object type (derivative)
+template <typename T, typename U = T>
+class async_object
 {
 public:
-    std::shared_ptr<T> on_read(async_read_function<CallbackT> f)
+    U &on_read(async_read_function<T> f)
     {
         m_read_f = f;
-        return this->shared_from_this();
+        return reinterpret_cast<U &>(*this);
     }
 
-    std::shared_ptr<T> on_connect(async_connect_function<CallbackT> f)
+    U &on_connect(async_connect_function<T> f)
     {
         m_connect_f = f;
-        return this->shared_from_this();
+        return reinterpret_cast<U &>(*this);
     }
 
-    std::shared_ptr<T> on_close(async_close_function<CallbackT> f)
+    U &on_close(async_close_function<T> f)
     {
         m_close_f = f;
-        return this->shared_from_this();
+        return reinterpret_cast<U &>(*this);
     }
 
-    std::shared_ptr<T> on_error(async_error_function<CallbackT> f)
+    U &on_error(async_error_function<T> f)
     {
         m_error_f = f;
-        return this->shared_from_this();
+        return reinterpret_cast<U &>(*this);
     }
 
 protected:
@@ -117,10 +119,10 @@ protected:
     }
 
 private:
-    async_read_function<CallbackT> m_read_f;
-    async_connect_function<CallbackT> m_connect_f;
-    async_close_function<CallbackT> m_close_f;
-    async_error_function<CallbackT> m_error_f;
+    async_read_function<T> m_read_f;
+    async_connect_function<T> m_connect_f;
+    async_close_function<T> m_close_f;
+    async_error_function<T> m_error_f;
 
 protected:
     set_log_address;
@@ -157,7 +159,8 @@ protected:
  *
  **/
 template <typename T>
-class async_io_object : public async_object<T>
+class async_io_object : public async_object<T>,
+                        public std::enable_shared_from_this<T>
 {
 public:
     // IMPORTANT: This function *must* be called from a derived

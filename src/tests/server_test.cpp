@@ -13,23 +13,25 @@ protected:
 
         // Setup connection bindings
         m_server->use_certificate("cert.crt", "cert.key")
-            ->on_server_error([](auto server, const auto &ec) {
+            .on_server_error([](auto server, const auto &ec) {
                 loge("server error: ", ec.message());
             })
-            ->on_read([](auto client, auto data) {
+            .on_read([](auto client, auto data) {
                 EXPECT_EQ(data.type(), ns::data_type::auth);
                 logi("read data type: ", data.type());
                 client->close();
             })
-            ->on_close([](auto client) { logi("connection closed"); })
-            ->on_error([](auto client, const auto &ec) {
+            .on_close([](auto client) { logi("connection closed"); })
+            .on_error([](auto client, const auto &ec) {
                 loge("error: ", ec.message());
-            })
+            });
+
+        m_server
             ->on_accept([](auto client) {
                 logi("connection accepted");
                 client->run();
             })
-            ->start();
+            .start();
     }
 
     virtual void TearDown()
@@ -37,7 +39,7 @@ protected:
         m_server->stop();
     }
 
-    std::shared_ptr<ns::tcp_server<>> m_server;
+    std::shared_ptr<ns::tcp_server<ns::tcp_connection>> m_server;
 };
 
 TEST_F(server_test, server_accepts_client)
@@ -50,10 +52,10 @@ TEST_F(server_test, server_accepts_client)
             logi("client connected");
             c->close();
         })
-        ->on_read([](auto client, auto data) { logi("read data"); })
-        ->on_close([](auto c) { logi("client closed"); })
-        ->on_error([](auto c, const auto &e) {})
-        ->run("localhost", "6666");
+        .on_read([](auto client, auto data) { logi("read data"); })
+        .on_close([](auto c) { logi("client closed"); })
+        .on_error([](auto c, const auto &e) {})
+        .run("localhost", "6666");
 }
 
 TEST_F(server_test, server_serializes_properly)
@@ -67,8 +69,8 @@ TEST_F(server_test, server_serializes_properly)
             ns::data x(ns::data_type::auth, 0);
             c->send(x);
         })
-        ->on_read([](auto client, auto data) { logi("read data"); })
-        ->on_close([](auto c) { logi("client closed"); })
-        ->on_error([](auto c, const auto &e) {})
-        ->run("localhost", "6666");
+        .on_read([](auto client, auto data) { logi("read data"); })
+        .on_close([](auto c) { logi("client closed"); })
+        .on_error([](auto c, const auto &e) {})
+        .run("localhost", "6666");
 }
