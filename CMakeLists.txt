@@ -10,7 +10,7 @@ project( nswarm )
 cmake_minimum_required( VERSION 2.4 )
 
 # Add target linker flags here
-set(PROJECT_LIBS "-pthread -lgtest")
+set(PROJECT_LIBS "-pthread -lgtest -lboost_program_options")
 
 # We require a C++17 compliant compiler
 set(CMAKE_CXX_FLAGS "-std=c++17 -O0 -g")

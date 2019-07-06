@@ -84,6 +84,7 @@ public:
     static void set_debug(bool enabled)
     {
         instance().m_debug = enabled;
+        instance().debug("enabled debug logging");
     }
 
     template <typename... Args>

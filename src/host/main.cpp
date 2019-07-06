@@ -13,6 +13,17 @@
 
 int main(int argc, const char *argv[])
 {
-    ns::program_options opt(argc, argv);
+    ns::program_options opt(argc, argv, "Daemon options");
+
+    if (opt.exists("help")) {
+        std::cout << opt.usage() << std::endl << std::endl << opt;
+        return 1;
+    }
+
+    // Enable debug if -d provided
+    if (opt.exists("debug")) {
+        ns::cout.set_debug(true);
+    }
+
     return 0;
 }

@@ -17,7 +17,7 @@ TEST(program_options, executable_name)
     const char *argv[1] = {
         "./program_options_test",
     };
-    ns::program_options options(argc, argv);
+    ns::program_options options(argc, argv, "program_options_test");
 
     EXPECT_EQ(options.name(), "program_options_test");
     logd("Found executable name: ", options.name());
@@ -30,7 +30,7 @@ TEST(program_options, abs_executable_name)
     const char *argv[1] = {
         "/usr/bin/program_options_test",
     };
-    ns::program_options options(argc, argv);
+    ns::program_options options(argc, argv, "program_options_test");
 
     EXPECT_EQ(options.name(), "program_options_test");
     logd("Found executable name: ", options.name());
