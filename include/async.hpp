@@ -124,6 +124,9 @@ private:
     async_connect_function<CallbackT> m_connect_f;
     async_close_function<CallbackT> m_close_f;
     async_error_function<CallbackT> m_error_f;
+
+protected:
+    set_log_address;
 };
 
 /**
@@ -399,6 +402,8 @@ protected:
         boost::asio::error::connection_reset,
         boost::asio::error::connection_refused,
         boost::asio::error::eof};
+
+    set_log_address;
 };
 
 }; // namespace ns

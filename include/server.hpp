@@ -55,6 +55,8 @@ public:
     // Make this publicly accessible
     using async_io_object::close;
 
+protected:
+    set_log_address;
 }; // class tcp_connection
 
 template <typename... Args>
@@ -230,6 +232,8 @@ private:
 protected:
     ssl::context m_context;
     tcp::acceptor m_acceptor;
+
+    set_log_address;
 }; // class tcp_server
 
 template <typename... Args>

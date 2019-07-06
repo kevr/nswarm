@@ -8,7 +8,9 @@
 #ifndef NS_LOGGING_HPP
 #define NS_LOGGING_HPP
 
+#include <iomanip>
 #include <iostream>
+#include <map>
 #include <mutex>
 #include <sstream>
 
@@ -168,16 +170,36 @@ static detail::logstream &cout = detail::logstream::instance();
 
 }; // namespace ns
 
+static inline const std::string p_secret_log_addr = "";
+
 #define logi(...)                                                              \
-    ns::cout.info(basename((char *)__FILE__), '(', __LINE__,                   \
-                  "): ", __VA_ARGS__);
+    ns::cout.info(basename((char *)__FILE__), '(', __LINE__, ") ",             \
+                  p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] "    \
+                                           : "",                               \
+                  __func__, "(): ", __VA_ARGS__);
 
 #define logd(...)                                                              \
-    ns::cout.debug(basename((char *)__FILE__), '(', __LINE__,                  \
-                   "): ", __VA_ARGS__);
+    ns::cout.debug(basename((char *)__FILE__), '(', __LINE__, ") ",            \
+                   p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] "   \
+                                            : "",                              \
+                   __func__, "(): ", __VA_ARGS__);
 
 #define loge(...)                                                              \
-    ns::cout.error(basename((char *)__FILE__), '(', __LINE__,                  \
-                   "): ", __VA_ARGS__);
+    ns::cout.error(basename((char *)__FILE__), '(', __LINE__, ") ",            \
+                   p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] "   \
+                                            : "",                              \
+                   __func__, "(): ", __VA_ARGS__);
+
+const std::string hexify(unsigned long value)
+{
+    std::stringstream ss;
+    ss << std::showbase << std::internal << std::setfill('0') << std::hex
+       << std::setw(4) << value;
+    return ss.str();
+}
+
+// set_log_address;
+#define set_log_address                                                        \
+    const std::string p_secret_log_addr = hexify((unsigned long)&*this)
 
 #endif

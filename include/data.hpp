@@ -151,6 +151,9 @@ private:
     uint16_t m_flags = 0;
     uint32_t m_size = 0;
     std::string m_data;
+
+protected:
+    set_log_address;
 };
 
 }; // namespace ns

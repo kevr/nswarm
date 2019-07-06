@@ -133,6 +133,8 @@ private:
 
 protected:
     ssl::context m_context;
+
+    set_log_address;
 };
 
 // Factory function for creating a tcp_client. Always use this
