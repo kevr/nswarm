@@ -17,6 +17,7 @@
 #include <iomanip>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 
 namespace ns
@@ -37,6 +38,9 @@ using async_error_function =
 
 template <typename T>
 using async_accept_function = std::function<void(std::shared_ptr<T>)>;
+
+template <typename T>
+using async_auth_function = std::function<void(std::shared_ptr<T>, data)>;
 
 /**
  * \class async_object
@@ -164,17 +168,19 @@ public:
         m_socket = std::make_unique<tcp_socket>(io, ctx);
     }
 
-    void send(const data &data) noexcept
+    void send(const data &data)
     {
-        uint64_t pkt = data.packet();
-        m_os.write(reinterpret_cast<char *>(&pkt), sizeof(uint64_t));
+        if (data.size() != data.get_string().size())
+            throw std::invalid_argument(
+                "data_size in packet mismatched string data size: " +
+                std::to_string(data.size()) + " vs " +
+                std::to_string(data.get_string().size()));
 
-        if (has_debug_logging()) {
-            logd("sending bits: ", std::bitset<sizeof(uint64_t) * 8>(pkt));
+        uint64_t packet = data.packet();
+        m_os.write(reinterpret_cast<char *>(&packet), sizeof(uint64_t));
+        if (data.size()) {
+            m_os.write(data.get_string().data(), data.size());
         }
-
-        if (data.get_string().size())
-            m_os << data.get_string();
         boost::asio::async_write(
             *m_socket, m_output,
             boost::asio::transfer_exactly(data.size() + sizeof(data.packet())),
@@ -280,27 +286,26 @@ protected:
     {
         if (!ec) {
 
-            uint64_t pkt = 0;
-            m_is.read(reinterpret_cast<char *>(&pkt), sizeof(uint64_t));
+            data x;
+            x.read_packet(m_is);
+
             logd("packet received (bits): ",
-                 std::bitset<sizeof(uint64_t) * 8>(pkt));
+                 std::bitset<sizeof(uint64_t) * 8>(x.packet()));
 
-            auto [type, flags, size] = deserialize_packet(pkt);
-            logd("deserialized packet: type = ", type, ", flags = ", flags,
-                 " size = ", size);
+            logd("deserialized packet: type = ", x.type(),
+                 ", flags = ", x.flags(), " size = ", x.size());
 
-            if (size > 0) {
+            if (x.size() > 0) {
                 boost::asio::async_read(
-                    *m_socket, m_input, boost::asio::transfer_exactly(size),
+                    *m_socket, m_input, boost::asio::transfer_exactly(x.size()),
                     boost::bind(
                         &T::async_on_read_data, this->shared_from_this(),
                         boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred, pkt));
+                        boost::asio::placeholders::bytes_transferred, x));
             } else {
                 // IMPORTANT: This is all wrong. We need better overrides for
                 // ns::data
                 if (this->has_read()) {
-                    data x(pkt);
                     this->call_read(this->shared_from_this(), x);
                 }
                 start_read();
@@ -311,16 +316,13 @@ protected:
     }
 
     void async_on_read_data(const boost::system::error_code &ec,
-                            std::size_t bytes, uint64_t pkt) noexcept
+                            std::size_t bytes, data x) noexcept
     {
         if (!ec) {
-            std::string data(bytes, '0');
-            m_is.read(&data[0], bytes);
-            logd("received ", bytes, " bytes of data");
+            x.read_data(m_is);
 
             // Construct message, pass to read fn if provided
             if (this->has_read()) {
-                class data x(pkt, 0, data);
                 this->call_read(this->shared_from_this(), x);
             }
             start_read();

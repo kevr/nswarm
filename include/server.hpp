@@ -63,7 +63,9 @@ std::shared_ptr<tcp_connection> make_tcp_connection(Args &&... args)
     return std::make_shared<tcp_connection>(std::forward<Args>(args)...);
 }
 
-class tcp_server : public async_object<tcp_server, tcp_connection>
+// T = connection type
+template <typename T = tcp_connection>
+class tcp_server : public async_object<tcp_server<T>, T>
 {
 public:
     tcp_server(unsigned short port) noexcept
@@ -231,9 +233,9 @@ protected:
 }; // class tcp_server
 
 template <typename... Args>
-std::shared_ptr<tcp_server> make_tcp_server(Args &&... args)
+std::shared_ptr<tcp_server<>> make_tcp_server(Args &&... args)
 {
-    return std::make_shared<tcp_server>(std::forward<Args>(args)...);
+    return std::make_shared<tcp_server<>>(std::forward<Args>(args)...);
 }
 
 }; // namespace ns

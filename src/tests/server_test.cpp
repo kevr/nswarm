@@ -37,7 +37,7 @@ protected:
         m_server->stop();
     }
 
-    std::shared_ptr<ns::tcp_server> m_server;
+    std::shared_ptr<ns::tcp_server<>> m_server;
 };
 
 TEST_F(server_test, server_accepts_client)
