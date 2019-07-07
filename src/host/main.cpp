@@ -20,8 +20,11 @@ int main(int argc, const char *argv[])
         return opt.help();
     }
 
-    // initialize debug logging if -d was provided
-    if (opt.exists("debug")) {
+    if (opt.exists("trace")) {
+        // initialize trace (+debug) logging if --trace was provided
+        ns::set_trace_logging(true);
+    } else if (opt.exists("debug")) {
+        // initialize debug logging if -d was provided
         ns::set_debug_logging(true);
     }
 

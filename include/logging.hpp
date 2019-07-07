@@ -89,6 +89,11 @@ public:
         instance().m_debug = enabled;
     }
 
+    static void set_trace(bool enabled)
+    {
+        instance().m_trace = enabled;
+    }
+
     template <typename... Args>
     void out(Args &&... args)
     {
@@ -117,6 +122,15 @@ public:
     {
         if (m_debug) {
             out("[  ", color::yellow::value, "DBG", color::normal::value, " ] ",
+                std::forward<Args>(args)...);
+        }
+    }
+
+    template <typename... Args>
+    void trace(Args &&... args)
+    {
+        if (m_trace) {
+            out("[ ", color::yellow::value, "TRCE", color::normal::value, " ] ",
                 std::forward<Args>(args)...);
         }
     }
@@ -150,11 +164,17 @@ private:
 
 private:
     static inline bool m_debug = false;
+    static inline bool m_trace = false;
 
 public: // public accessor for m_debug
     static inline bool has_debug_logging()
     {
         return m_debug;
+    }
+
+    static inline bool has_trace_logging()
+    {
+        return m_trace;
     }
 };
 
@@ -163,6 +183,11 @@ public: // public accessor for m_debug
 static inline bool has_debug_logging()
 {
     return ns::detail::logstream::has_debug_logging();
+}
+
+static inline bool has_trace_logging()
+{
+    return ns::detail::logstream::has_trace_logging();
 }
 
 // Create a global reference to our logstream
@@ -213,6 +238,13 @@ static inline void set_debug_logging(bool enabled)
     if (enabled)
         logd("enabled debug logging");
 }
+static inline void set_trace_logging(bool enabled)
+{
+    set_debug_logging(enabled);
+    ns::detail::logstream::instance().set_trace(enabled);
+    if (enabled)
+        logd("enabled trace logging");
+}
 }; // namespace ns
 
 class atexit_func
@@ -221,14 +253,17 @@ public:
     atexit_func(const std::string &fname, std::size_t line,
                 const std::string &log_addr, const std::string &func)
     {
-        pre = fname + "(" + std::to_string(line) + ") " + log_addr + func +
-              "(): ";
-        ns::cout.debug(pre, "START");
+        // Do as little work as possible
+        if (ns::cout.has_trace_logging()) {
+            pre = fname + "(" + std::to_string(line) + ") " + log_addr + func +
+                  "(): ";
+            ns::cout.trace(pre, "START");
+        }
     }
 
     ~atexit_func()
     {
-        ns::cout.debug(pre, "END");
+        ns::cout.trace(pre, "END");
     }
 
 private:

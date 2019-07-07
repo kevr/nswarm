@@ -119,6 +119,7 @@ private:
     {
         add_option("help,h", "Print help message");
         add_option("debug,d", "Enable debug logging");
+        add_option("trace", "Enable trace logging (also enables debug)");
         add_option<std::string>("log", "Path to optional logfile");
     }
 
