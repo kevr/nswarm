@@ -33,13 +33,15 @@ public:
 
     void start()
     {
-        m_running = true;
+        // m_running = true;
+        m_running.exchange(true);
         m_thread = std::thread([this]() { this->work_loop(); });
     }
 
     void stop()
     {
-        m_running = false;
+        // m_running = false;
+        m_running.exchange(false);
         // use an interrupt
         m_thread.join();
     }
@@ -69,7 +71,7 @@ private:
             while (r >= 0) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 r -= 10;
-                if (!m_running) {
+                if (!m_running.load()) {
                     keep_running = false;
                     // Check our atomic flag for interrupt.
                     break;
