@@ -9,6 +9,13 @@ target_link_libraries(
 )
 
 add_executable(
+    sensor_test sensor_test.cpp
+)
+
+target_link_libraries(
+    sensor_test gtest_main
+)
+add_executable(
     program_options_test program_options_test.cpp
 )
 

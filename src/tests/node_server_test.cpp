@@ -77,13 +77,4 @@ TEST_F(node_server_test, server_authenticates)
 TEST_F(node_server_test, server_denies_unauthenticated)
 {
     trace();
-
-    ns::memory_sensor mem_sensor(5000);
-    mem_sensor.start();
-    logd("Memory sensor value: ", mem_sensor.get_value());
-
-    std::this_thread::sleep_for(std::chrono::seconds(7));
-    logd("Memory sensor value: ", mem_sensor.get_value());
-
-    mem_sensor.stop();
 }
