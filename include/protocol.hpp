@@ -120,8 +120,10 @@ private:
     async_subscribe_function<ConnectionT, DataT> m_subscribe_f;
     async_task_function<ConnectionT, DataT> m_task_f;
 
-    std::map<uint16_t, std::function<void(std::shared_ptr<ConnectionT>, DataT)>>
-        call_table;
+    using async_protocol_function =
+        std::function<void(std::shared_ptr<ConnectionT>, DataT)>;
+
+    std::map<uint16_t, async_protocol_function> call_table;
 
     set_log_address;
 };

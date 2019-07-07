@@ -225,6 +225,16 @@ public:
         return m_socket->lowest_layer().is_open();
     }
 
+    const std::string &remote_host() const
+    {
+        return m_remote_host;
+    }
+
+    const std::string &remote_port() const
+    {
+        return m_remote_port;
+    }
+
 protected:
     void
     start_handshake(ssl::stream_base::handshake_type handshake_type) noexcept
@@ -235,10 +245,58 @@ protected:
                         boost::asio::placeholders::error));
     }
 
+    void start_resolve(tcp::resolver &resolver, const std::string &host,
+                       const std::string &port)
+    {
+        tcp::resolver::query query(host, port);
+        resolver.async_resolve(
+            query, boost::bind(&T::async_on_resolve, this->shared_from_this(),
+                               boost::asio::placeholders::error,
+                               boost::asio::placeholders::iterator));
+    }
+
+    template <typename... Args>
+    void handle_error(const boost::system::error_code &ec,
+                      Args &&... args) noexcept
+    {
+        // If the error is not in the whitelist, explicitly log it out
+        if (m_errors_wl.find(ec) == m_errors_wl.end()) {
+            loge(ec.message());
+            close();
+            if (this->has_error())
+                this->call_error(this->shared_from_this(), ec);
+        } else {
+            logd(std::forward<Args>(args)..., ": ", ec.message());
+            close();
+            logd("tcp handle closed: ", std::showbase, std::internal,
+                 std::setfill('0'), std::hex, std::setw(4),
+                 (unsigned long)&*this->shared_from_this());
+            if (this->has_close())
+                this->call_close(this->shared_from_this());
+        }
+    }
+
+    void close()
+    {
+        logd("close called");
+        boost::system::error_code ec; // No need to check, silently fail
+        m_socket->shutdown(ec);       // ssl stream shutdown
+        m_socket->lowest_layer().close();
+    }
+
+    void set_endpoint(const tcp::endpoint &ep)
+    {
+        m_remote_host = ep.address().to_v4().to_string();
+        m_remote_port = std::to_string(ep.port());
+    }
+
+private:
     // boost::asio async callbacks
     void async_on_resolve(const boost::system::error_code &ec,
                           tcp::resolver::iterator iter) noexcept
     {
+        trace();
+
         if (!ec) {
             logd("resolve succeeded");
             auto ep = iter++;
@@ -253,18 +311,23 @@ protected:
     }
 
     void async_on_connect(const boost::system::error_code &ec,
-                          tcp::resolver::iterator iter) noexcept
+                          tcp::resolver::iterator next) noexcept
     {
+        trace();
+
+        // This will always be the same value and never modified.
+        static const auto end = tcp::resolver::iterator();
+
         if (!ec) {
             logd("connect succeeded");
             start_handshake(ssl::stream_base::client);
-        } else if (iter != tcp::resolver::iterator()) {
+        } else if (next != end) {
             logd("connect failed, trying next address");
-            auto ep = iter++;
+            auto ep = next++;
             boost::asio::async_connect(
                 m_socket->lowest_layer(), ep,
                 boost::bind(&T::async_on_connect, this->shared_from_this(),
-                            boost::asio::placeholders::error, iter));
+                            boost::asio::placeholders::error, next));
         } else {
             handle_error(ec, "unable to connect: ", ec.message());
         }
@@ -272,8 +335,12 @@ protected:
 
     void async_on_handshake(const boost::system::error_code &ec) noexcept
     {
+        trace();
+
         if (!ec) {
             logd("handshake succeeded");
+
+            set_endpoint(socket().lowest_layer().remote_endpoint());
 
             if (this->has_connect())
                 this->call_connect(this->shared_from_this());
@@ -287,6 +354,8 @@ protected:
     void async_on_read_packet(const boost::system::error_code &ec,
                               std::size_t bytes) noexcept
     {
+        trace();
+
         if (!ec) {
 
             data x;
@@ -321,6 +390,8 @@ protected:
     void async_on_read_data(const boost::system::error_code &ec,
                             std::size_t bytes, data x) noexcept
     {
+        trace();
+
         if (!ec) {
             x.read_data(m_is);
 
@@ -337,6 +408,8 @@ protected:
     void async_on_write(const boost::system::error_code &ec,
                         std::size_t bytes) noexcept
     {
+        trace();
+
         if (!ec) {
             logd("sent ", bytes, " bytes of data (", bytes - sizeof(uint64_t),
                  " data size)");
@@ -345,36 +418,6 @@ protected:
         }
     }
 
-    template <typename... Args>
-    void handle_error(const boost::system::error_code &ec,
-                      Args &&... args) noexcept
-    {
-        // If the error is not in the whitelist, explicitly log it out
-        if (m_errors_wl.find(ec) == m_errors_wl.end()) {
-            loge(ec.message());
-            close();
-            if (this->has_error())
-                this->call_error(this->shared_from_this(), ec);
-        } else {
-            logd(std::forward<Args>(args)..., ": ", ec.message());
-            close();
-            logd("tcp handle closed: ", std::showbase, std::internal,
-                 std::setfill('0'), std::hex, std::setw(4),
-                 (unsigned long)&*this->shared_from_this());
-            if (this->has_close())
-                this->call_close(this->shared_from_this());
-        }
-    }
-
-    void close()
-    {
-        logd("close called");
-        boost::system::error_code ec; // No need to check, silently fail
-        m_socket->shutdown(ec);       // ssl stream shutdown
-        m_socket->lowest_layer().close();
-    }
-
-private:
     void start_read() noexcept
     {
         boost::asio::async_read(
@@ -385,6 +428,12 @@ private:
     }
 
 protected:
+    std::unique_ptr<tcp_socket> &socket_ptr()
+    {
+        return m_socket;
+    }
+
+private:
     boost::asio::streambuf m_input;
     std::istream m_is{&m_input};
 
@@ -392,6 +441,9 @@ protected:
     std::ostream m_os{&m_output};
 
     std::unique_ptr<tcp_socket> m_socket;
+
+    std::string m_remote_host;
+    std::string m_remote_port;
 
     // Error whitelist - when encountering one of these errors,
     // we will gracefully close the socket.

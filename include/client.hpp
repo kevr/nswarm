@@ -62,14 +62,14 @@ public:
         , m_context(std::move(other.m_context))
         , m_resolver(std::move(other.m_resolver))
     {
-        m_socket = std::move(other.m_socket);
+        this->socket_ptr() = std::move(other.socket_ptr());
     }
 
     void operator=(tcp_client &&other) noexcept
     {
         m_io_ptr = std::move(other.m_io_ptr);
         m_context = std::move(other.m_context);
-        m_socket = std::move(other.m_socket);
+        socket_ptr() = std::move(other.socket_ptr());
         m_resolver = std::move(other.m_resolver);
     }
 
@@ -78,7 +78,7 @@ public:
     template <typename VerifyMode>
     void set_verify_mode(VerifyMode mode)
     {
-        m_socket->set_verify_mode(mode);
+        socket().set_verify_mode(mode);
     }
 
     // make this publicly accessible
@@ -97,7 +97,7 @@ public:
         if (m_io_ptr)
             m_io_ptr->stop();
         else
-            m_socket->get_io_service().stop();
+            socket().get_io_service().stop();
     }
 
 private:
@@ -105,13 +105,7 @@ private:
     {
         m_host = host;
         m_port = port;
-
-        tcp::resolver::query query(m_host, m_port);
-        m_resolver.async_resolve(
-            query,
-            boost::bind(&tcp_client::async_on_resolve, shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::iterator));
+        start_resolve(m_resolver, m_host, m_port);
     }
 
     void store_endpoint(const tcp::resolver::endpoint_type ep) noexcept

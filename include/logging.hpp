@@ -215,4 +215,30 @@ static inline void set_debug_logging(bool enabled)
 }
 }; // namespace ns
 
+class atexit_func
+{
+public:
+    atexit_func(const std::string &fname, std::size_t line,
+                const std::string &log_addr, const std::string &func)
+    {
+        pre = fname + "(" + std::to_string(line) + ") " + log_addr + func +
+              "(): ";
+        ns::cout.debug(pre, "START");
+    }
+
+    ~atexit_func()
+    {
+        ns::cout.debug(pre, "END");
+    }
+
+private:
+    std::string pre;
+};
+
+#define trace()                                                                \
+    atexit_func secret_atexit(                                                 \
+        basename((char *)__FILE__), __LINE__,                                  \
+        p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] " : "",        \
+        __func__)
+
 #endif

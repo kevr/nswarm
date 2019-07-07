@@ -9,6 +9,7 @@ class node_server_test : public ::testing::Test
 protected:
     virtual void SetUp()
     {
+        trace();
         ns::set_debug_logging(true);
         // start() bad_weak_ptr, stop() segfault
         m_server = std::make_shared<ns::host::node_server>(6666);
@@ -18,6 +19,7 @@ protected:
 
     virtual void TearDown()
     {
+        trace();
         m_server->stop();
     }
 
@@ -26,13 +28,13 @@ protected:
 
 TEST_F(node_server_test, server_listens)
 {
+    trace();
+
     auto client = ns::make_tcp_client();
     client
         ->on_connect([](auto c) {
-            logi("connected");
-            uint64_t packet = ns::serialize_packet(ns::data_type::auth, 0, 0);
-            ns::data x(packet);
-            c->send(x);
+            logi("connected to ", c->remote_host(), ":", c->remote_port());
+            c->close();
         })
         .on_close([](auto c) { logi("closed"); })
         .on_error([](auto c, const auto &e) { loge("error: ", e.message()); })
@@ -41,10 +43,12 @@ TEST_F(node_server_test, server_listens)
 
 TEST_F(node_server_test, server_authenticates)
 {
+    trace();
+
     auto client = ns::make_tcp_client();
     client
         ->on_connect([](auto c) {
-            logi("connected");
+            logi("connected to ", c->remote_host(), ":", c->remote_port());
             uint64_t packet = ns::serialize_packet(ns::data_type::task, 0, 0);
             ns::data x(packet);
             c->send(x);
@@ -56,4 +60,5 @@ TEST_F(node_server_test, server_authenticates)
 
 TEST_F(node_server_test, server_denies_unauthenticated)
 {
+    trace();
 }

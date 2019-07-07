@@ -38,6 +38,8 @@ public:
 
 private:
     bool m_auth = false;
+
+    set_log_address;
 };
 
 class node_server : public tcp_server<node_connection>
@@ -128,8 +130,9 @@ public:
 
 private:
     std::set<std::shared_ptr<node_connection>> m_nodes;
-
     protocol<node_connection, data> m_proto;
+
+    set_log_address;
 };
 
 }; // namespace host

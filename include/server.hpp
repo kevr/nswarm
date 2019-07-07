@@ -48,12 +48,7 @@ public:
 
     void operator=(connection &&other) noexcept
     {
-        this->m_socket = std::move(other.m_socket);
-    }
-
-    tcp_socket &socket()
-    {
-        return *this->m_socket;
+        this->socket() = std::move(other.m_socket);
     }
 
     void run() noexcept
@@ -71,7 +66,7 @@ protected:
 template <typename T, typename... Args>
 std::shared_ptr<T> make_connection(Args &&... args)
 {
-    return std::make_shared<connection>(std::forward<Args>(args)...);
+    return std::make_shared<connection<T>>(std::forward<Args>(args)...);
 }
 
 // T = connection type
@@ -164,6 +159,11 @@ public:
         return *m_io_ptr;
     }
 
+    const std::size_t count() const
+    {
+        return m_connections;
+    }
+
 protected:
     template <typename... Args>
     void call_accept(Args &&... args) noexcept
@@ -204,6 +204,8 @@ private:
         if (!ec) {
             logd("client accepted");
 
+            ++m_connections; // increment connection count
+
             if (this->has_connect())
                 client->on_connect(std::bind(
                     &tcp_server::template call_connect<std::shared_ptr<T>>,
@@ -215,15 +217,16 @@ private:
                     this, std::placeholders::_1, std::placeholders::_2));
 
             if (this->has_close())
-                client->on_close(std::bind(
-                    &tcp_server::template call_close<std::shared_ptr<T>>, this,
-                    std::placeholders::_1));
+                client->on_close([this](auto c) {
+                    --m_connections; // remove connection from count
+                    this->call_close(c);
+                });
 
             if (this->has_error())
-                client->on_error(std::bind(
-                    &tcp_server::template call_error<
-                        std::shared_ptr<T>, const boost::system::error_code &>,
-                    this, std::placeholders::_1, std::placeholders::_2));
+                client->on_error([this](auto c, const auto &ec) {
+                    --m_connections; // remove connection from count
+                    this->call_error(c, ec);
+                });
 
             if (has_accept())
                 call_accept(client); // client->run() should be called
@@ -248,6 +251,10 @@ private:
     async_server_error_function<tcp_server> m_server_error_f;
 
     std::thread m_thread;
+
+    // Start connection count at 0. on_close/on_error we will
+    // decrement this count.
+    std::size_t m_connections = 0;
 
 protected:
     ssl::context m_context;
