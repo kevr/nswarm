@@ -127,6 +127,12 @@ public:
             });
     }
 
+protected:
+    using tcp_server::on_accept;
+    using tcp_server::on_close;
+    using tcp_server::on_error;
+    using tcp_server::on_read;
+
 private:
     std::set<std::shared_ptr<node_connection>> m_nodes;
     protocol<node_connection, data> m_proto;
