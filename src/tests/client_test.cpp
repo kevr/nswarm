@@ -11,7 +11,8 @@ TEST(client_test, google_search)
 
     client
         ->on_connect([](auto client) {
-            logd("Client connected!");
+            logd("client connected to ", client->remote_host(), ":",
+                 client->remote_port());
             client->close();
         })
         .on_read([](auto client, auto msg) { logd("Message received"); })
@@ -29,7 +30,8 @@ TEST(client_test, internal_io_service)
 
     client
         ->on_connect([](auto client) {
-            logd("Client connected!");
+            logd("client connected to ", client->remote_host(), ":",
+                 client->remote_port());
             client->close();
         })
         .on_read([](auto client, auto msg) { logd("Message received"); })
@@ -47,7 +49,8 @@ TEST(client_test, two_shared_io_clients)
 
     client
         ->on_connect([](auto client) {
-            logd("Client connected!");
+            logd("client connected to ", client->remote_host(), ":",
+                 client->remote_port());
             client->close();
         })
         .on_read([](auto client, auto msg) { logd("Message received"); })
@@ -57,7 +60,8 @@ TEST(client_test, two_shared_io_clients)
 
     client2
         ->on_connect([](auto client) {
-            logd("Client2 connected!");
+            logd("client2 connected to ", client->remote_host(), ":",
+                 client->remote_port());
             client->close();
         })
         .on_read([](auto client, auto msg) { logd("Message2 received"); })
@@ -76,7 +80,8 @@ TEST(client_test, unable_to_connect)
 
     client
         ->on_connect([](auto client) {
-            logd("Client connected!");
+            logd("client connected to ", client->remote_host(), ":",
+                 client->remote_port());
             client->close();
         })
         .on_read([](auto client, auto msg) { logd("Message received"); })
@@ -95,7 +100,8 @@ TEST(client_test, invalid_port)
 
     client
         ->on_connect([](auto client) {
-            logd("Client connected!");
+            logd("client connected to ", client->remote_host(), ":",
+                 client->remote_port());
             client->close();
         })
         .on_read([](auto client, auto msg) { logd("Message received"); })
