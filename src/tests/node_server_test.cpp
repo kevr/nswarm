@@ -1,6 +1,7 @@
 #include "client.hpp"
 #include "host/node_server.hpp"
 #include "logging.hpp"
+#include "memory.hpp"
 #include <gtest/gtest.h>
 #include <string>
 
@@ -9,8 +10,8 @@ class node_server_test : public ::testing::Test
 protected:
     virtual void SetUp()
     {
+        ns::set_trace_logging(true);
         trace();
-        ns::set_debug_logging(true);
         // start() bad_weak_ptr, stop() segfault
         m_server = std::make_shared<ns::host::node_server>(6666);
         m_server
@@ -76,4 +77,13 @@ TEST_F(node_server_test, server_authenticates)
 TEST_F(node_server_test, server_denies_unauthenticated)
 {
     trace();
+
+    ns::memory_sensor mem_sensor(5000);
+    mem_sensor.start();
+    logd("Memory sensor value: ", mem_sensor.get_value());
+
+    std::this_thread::sleep_for(std::chrono::seconds(7));
+    logd("Memory sensor value: ", mem_sensor.get_value());
+
+    mem_sensor.stop();
 }

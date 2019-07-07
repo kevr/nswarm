@@ -264,12 +264,13 @@ protected:
         if (m_errors_wl.find(ec) == m_errors_wl.end()) {
             loge(ec.message());
             close();
+            logd("calling on_error");
             if (this->has_error())
                 this->call_error(this->shared_from_this(), ec);
         } else {
             logd(std::forward<Args>(args)..., ": ", ec.message());
             close();
-            logd("tcp handle closed");
+            logd("calling on_close");
             if (this->has_close())
                 this->call_close(this->shared_from_this());
         }
