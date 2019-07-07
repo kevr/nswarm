@@ -10,6 +10,7 @@
 #define NS_SENSOR_HPP
 
 #include "logging.hpp"
+#include "util.hpp"
 #include <atomic>
 #include <mutex>
 #include <string>
@@ -45,7 +46,9 @@ public:
 
     T get_value()
     {
-        std::lock_guard<std::mutex> g(m_mutex);
+        logd("acquiring get_value mutex");
+        ns::lock_guard<std::mutex> g(m_mutex);
+        logd("mutex acquired, continuing");
         return get();
     }
 
@@ -75,7 +78,7 @@ private:
             if (!keep_running)
                 break;
             logd("reached work interval, acquiring mutex");
-            std::lock_guard<std::mutex> g(m_mutex);
+            ns::lock_guard<std::mutex> g(m_mutex);
             logd("mutex acquired, working");
             work();
             logd("work done");

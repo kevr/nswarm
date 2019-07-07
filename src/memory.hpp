@@ -9,6 +9,7 @@
 #ifndef NS_MEMORY_HPP
 #define NS_MEMORY_HPP
 
+#include "logging.hpp"
 #include "process.hpp"
 #include "sensor.hpp"
 #include <atomic>
@@ -26,16 +27,20 @@ public:
 protected:
     virtual void work()
     {
+        trace();
         m_usage = bytes_in_use();
     }
 
     virtual uint64_t get()
     {
+        trace();
         return m_usage;
     }
 
 private:
     uint64_t m_usage = 0; // actually in kb right now.
+
+    set_log_address;
 };
 
 }; // namespace ns

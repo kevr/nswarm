@@ -13,6 +13,8 @@ namespace ns
 {
 inline uint64_t bytes_in_use()
 {
+    trace();
+
     uint64_t bytes = 0;
 
     pid_t pid = getpid();
@@ -31,7 +33,6 @@ inline uint64_t bytes_in_use()
     }
 
     pclose(proc);
-    // logi("process output:\n", output);
 
     std::vector<std::string> lines;
     std::size_t pos = output.find("\n");
