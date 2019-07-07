@@ -66,7 +66,6 @@ public:
             .on_auth([this](auto c, auto msg) {
                 c->authenticate();
                 logi("on_auth invoked, authenticated");
-                c->close();
             })
             .on_provide([this](auto c, auto msg) {
                 if (!c->authenticated()) {

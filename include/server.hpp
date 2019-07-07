@@ -131,6 +131,10 @@ public:
     // Start the server by calling run() within a thread
     void start()
     {
+        std::lock_guard<std::mutex> g(m_mutex);
+        if (m_running)
+            return;
+
         if (!has_accept())
             loge("start() called on a server with no on_accept provided");
 
@@ -140,18 +144,24 @@ public:
         // to allow the thread to start up and begin accepting
         // clients.
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        m_running = true;
     }
 
     // Completely stop the server. Reset the associated
     // io_service and join the accept thread.
     void stop()
     {
+        std::lock_guard<std::mutex> g(m_mutex);
+        if (!m_running)
+            return;
+
         logd("stopping thread");
         if (m_io_ptr) {
             m_io_ptr->stop();
             logd("reset io_service");
         }
         m_thread.join();
+        m_running = false;
     }
 
     io_service &get_io_service()
@@ -232,8 +242,9 @@ private:
                 call_accept(client); // client->run() should be called
                                      // in the accept function
             else
-                logd("connection accepted, but no callback was "
-                     "provided");
+                m_running = true;
+            logd("connection accepted, but no callback was "
+                 "provided");
 
             // Go for another accept loop and wait for a connection
             try_accept();
@@ -255,6 +266,9 @@ private:
     // Start connection count at 0. on_close/on_error we will
     // decrement this count.
     std::size_t m_connections = 0;
+
+    std::mutex m_mutex;
+    bool m_running = false;
 
 protected:
     ssl::context m_context;

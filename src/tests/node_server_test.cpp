@@ -45,17 +45,27 @@ TEST_F(node_server_test, server_authenticates)
 {
     trace();
 
-    auto client = ns::make_tcp_client();
+    auto client = ns::make_tcp_client(m_server->get_io_service());
     client
         ->on_connect([](auto c) {
             logi("connected to ", c->remote_host(), ":", c->remote_port());
-            uint64_t packet = ns::serialize_packet(ns::data_type::task, 0, 0);
+            uint64_t packet = ns::serialize_packet(ns::data_type::auth, 0, 0);
             ns::data x(packet);
             c->send(x);
         })
         .on_close([](auto c) { logi("closed"); })
         .on_error([](auto c, const auto &e) { loge("error: ", e.message()); })
         .run("localhost", "6666");
+
+    // Wait until client is connected.
+    // We need a better wait to wait until a client is added
+    // on the server side.
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    EXPECT_EQ(m_server->count(), 1);
+    client->close();
+
+    m_server->stop();
+    EXPECT_EQ(m_server->count(), 0);
 }
 
 TEST_F(node_server_test, server_denies_unauthenticated)
