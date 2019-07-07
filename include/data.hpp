@@ -56,6 +56,7 @@ public:
          std::string data_value = std::string()) noexcept
         : m_type(type)
         , m_flags(flags)
+        , m_size(data_value.size())
         , m_data(std::move(data_value))
     {
     }
@@ -65,7 +66,7 @@ public:
     {
         m_type = (uint16_t)(packet >> 48);
         m_flags = (uint16_t)(packet >> 32);
-        m_size = 0;
+        m_size = data_value.size();
         logd("data created with {", m_type, ", ", m_flags, ", ", m_data.size(),
              "}");
     }
@@ -73,6 +74,7 @@ public:
     data(const data &other) noexcept
         : m_type(other.m_type)
         , m_flags(other.m_flags)
+        , m_size(other.m_size)
         , m_data(other.m_data)
     {
     }
@@ -81,6 +83,7 @@ public:
     {
         m_type = other.m_type;
         m_flags = other.m_flags;
+        m_size = other.m_size;
         m_data = other.m_data;
         return *this;
     }
@@ -88,6 +91,7 @@ public:
     data(data &&other) noexcept
         : m_type(other.m_type)
         , m_flags(other.m_flags)
+        , m_size(other.m_size)
         , m_data(std::move(other.m_data))
     {
     }
@@ -96,6 +100,7 @@ public:
     {
         m_type = other.m_type;
         m_flags = other.m_flags;
+        m_size = other.m_size;
         m_data = std::move(other.m_data);
         return *this;
     }
