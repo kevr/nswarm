@@ -28,7 +28,13 @@ protected:
     virtual void work()
     {
         trace();
-        m_usage = bytes_in_use();
+        m_bytes_in_use = bytes_in_use();
+    }
+
+    virtual void locked()
+    {
+        trace();
+        m_usage = m_bytes_in_use;
     }
 
     virtual uint64_t get()
@@ -38,7 +44,13 @@ protected:
     }
 
 private:
-    uint64_t m_usage = 0; // actually in kb right now.
+    // Keep two separate variables, a presentable usage
+    // that users can .get_value() of, and a cache of
+    // the current bytes in use. the m_usage will only
+    // be assigned in locked(), after the work has been
+    // done to collect the data from the system.
+    uint64_t m_usage = 0;
+    uint64_t m_bytes_in_use = 0; // result from work
 
     set_log_address;
 };

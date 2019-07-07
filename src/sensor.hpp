@@ -23,7 +23,7 @@ template <typename T>
 class sensor
 {
 public:
-    sensor(uint64_t interval_in_milliseconds)
+    sensor(int64_t interval_in_milliseconds)
         : m_interval(interval_in_milliseconds)
     {
         logd("sensor initialized with interval = ", m_interval, "ms");
@@ -56,7 +56,7 @@ public:
 
 protected:
     virtual void work() = 0;
-
+    virtual void locked() = 0;
     virtual T get() = 0;
 
 private:
@@ -64,26 +64,26 @@ private:
     {
         trace();
 
-        bool keep_running = true;
-        while (keep_running) {
-            // Once every 10 seconds.
-            int r = m_interval;
+        while (true) {
+            {
+                logd("reached work interval, calling pre-work");
+                work();
+
+                logd("work done, acquiring mutex");
+                ns::lock_guard<std::mutex> g(m_mutex);
+                logd("mutex acquired, dispersing data");
+                locked();
+                logd("dispersed locked data");
+            }
+
+            int64_t r = m_interval; // interval total
             while (r >= 0) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                r -= 10;
+                r -= 10; // take away 10ms
                 if (!m_running.load()) {
-                    keep_running = false;
-                    // Check our atomic flag for interrupt.
-                    break;
+                    return;
                 }
             }
-            if (!keep_running)
-                break;
-            logd("reached work interval, acquiring mutex");
-            ns::lock_guard<std::mutex> g(m_mutex);
-            logd("mutex acquired, working");
-            work();
-            logd("work done");
         }
     }
 
@@ -93,7 +93,7 @@ private:
 
     std::atomic<bool> m_running;
 
-    uint64_t m_interval;
+    int64_t m_interval;
 
     set_log_address;
 };
