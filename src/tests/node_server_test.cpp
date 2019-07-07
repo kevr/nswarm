@@ -13,7 +13,12 @@ protected:
         ns::set_debug_logging(true);
         // start() bad_weak_ptr, stop() segfault
         m_server = std::make_shared<ns::host::node_server>(6666);
-        m_server->use_certificate("cert.crt", "cert.key");
+        m_server
+            ->on_connect([](auto c) {
+                logd("client connected from ", c->remote_host(), ":",
+                     c->remote_port());
+            })
+            .use_certificate("cert.crt", "cert.key");
         m_server->start();
     }
 
