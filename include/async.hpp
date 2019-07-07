@@ -268,9 +268,7 @@ protected:
         } else {
             logd(std::forward<Args>(args)..., ": ", ec.message());
             close();
-            logd("tcp handle closed: ", std::showbase, std::internal,
-                 std::setfill('0'), std::hex, std::setw(4),
-                 (unsigned long)&*this->shared_from_this());
+            logd("tcp handle closed");
             if (this->has_close())
                 this->call_close(this->shared_from_this());
         }
