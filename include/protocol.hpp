@@ -2,6 +2,7 @@
 #define NS_PROTOCOL_HPP
 
 #include "data.hpp"
+#include <boost/asio.hpp>
 #include <functional>
 #include <map>
 #include <memory>
@@ -88,7 +89,7 @@ public:
     protocol &on_task(async_task_function<ConnectionT, DataT> task_f)
     {
         m_task_f = task_f;
-        call_table[data_type::auth] = m_task_f;
+        call_table[data_type::task] = m_task_f;
         return *this;
     }
 
@@ -124,6 +125,11 @@ private:
 
     set_log_address;
 };
+
+namespace error
+{
+}; // namespace error
+
 }; // namespace ns
 
 #endif

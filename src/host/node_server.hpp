@@ -24,6 +24,8 @@ class node_connection : public connection<node_connection>
 public:
     using connection::connection;
 
+    virtual ~node_connection() = default;
+
     void authenticate()
     {
         m_auth = true;
@@ -41,18 +43,33 @@ private:
 class node_server : public tcp_server<node_connection>
 {
 public:
+    using tcp_server::tcp_server;
+
+    node_server(unsigned short port)
+        : tcp_server(port)
+    {
+        init();
+    }
+
     node_server(io_service &io, unsigned short port)
         : tcp_server(io, port)
+    {
+        init();
+    }
+
+    void init()
     {
         // Bind protocol callbacks
         m_proto
             .on_auth([this](auto c, auto msg) {
                 c->authenticate();
                 logi("on_auth invoked, authenticated");
+                c->close();
             })
             .on_provide([this](auto c, auto msg) {
                 if (!c->authenticated()) {
                     loge("client not authenticated during on_subscribe");
+                    c->close();
                 } else {
                     // provide method
                 }
@@ -60,6 +77,7 @@ public:
             .on_subscribe([this](auto c, auto msg) {
                 if (!c->authenticated()) {
                     loge("client not authenticated during on_subscribe");
+                    c->close();
                 } else {
                     // subscribe to event
                 }
@@ -67,13 +85,19 @@ public:
             .on_task([this](auto c, auto msg) {
                 if (!c->authenticated()) {
                     loge("client not authenticated during on_task");
+                    c->close();
                 } else {
                     // respond to task request
                 }
             });
 
         // Bind socket i/o callbacks
-        on_accept([this](auto client) { m_nodes.emplace(client); })
+        on_accept([this](auto client) {
+            m_nodes.emplace(client);
+            client->run();
+
+            logi("node connected to the swarm");
+        })
             .on_read([this](auto client, auto msg) {
                 // When we read from a node, use m_proto to decide what to do.
                 try {

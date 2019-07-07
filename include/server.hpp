@@ -13,11 +13,19 @@
 #include "async.hpp"
 #include "logging.hpp"
 #include "types.hpp"
+#include <functional>
 #include <memory>
 #include <thread>
 
 namespace ns
 {
+
+template <typename T>
+using async_accept_function = std::function<void(std::shared_ptr<T>)>;
+
+template <typename T>
+using async_server_error_function =
+    std::function<void(T *, const boost::system::error_code &)>;
 
 template <typename T>
 class connection : public async_io_object<T>
@@ -68,7 +76,7 @@ std::shared_ptr<T> make_connection(Args &&... args)
 
 // T = connection type
 template <typename T>
-class tcp_server : public async_object<T, tcp_server<T>>
+class tcp_server : public async_object<tcp_server<T>, T>
 {
 public:
     tcp_server(unsigned short port) noexcept
@@ -84,7 +92,7 @@ public:
     {
     }
 
-    ~tcp_server() noexcept = default;
+    virtual ~tcp_server() = default;
 
     tcp_server &use_certificate(const std::string &cert,
                                 const std::string &key) noexcept
@@ -105,9 +113,7 @@ public:
     //         ilog("Server had an error");
     //     });
     //
-    tcp_server &on_server_error(
-        std::function<void(tcp_server *, const boost::system::error_code &)>
-            error_f)
+    tcp_server &on_server_error(async_server_error_function<tcp_server> error_f)
     {
         m_server_error_f = error_f;
         return *this;
@@ -130,6 +136,9 @@ public:
     // Start the server by calling run() within a thread
     void start()
     {
+        if (!has_accept())
+            loge("start() called on a server with no on_accept provided");
+
         logd("starting thread");
         m_thread = std::thread([this] { run(); });
         // Purposely sleep this function for 1/4th of a second
@@ -143,9 +152,16 @@ public:
     void stop()
     {
         logd("stopping thread");
-        if (m_io_ptr)
+        if (m_io_ptr) {
             m_io_ptr->stop();
+            logd("reset io_service");
+        }
         m_thread.join();
+    }
+
+    io_service &get_io_service()
+    {
+        return *m_io_ptr;
     }
 
 protected:
@@ -189,24 +205,32 @@ private:
             logd("client accepted");
 
             if (this->has_connect())
-                client->on_connect([=](auto c) { this->call_connect(c); });
+                client->on_connect(std::bind(
+                    &tcp_server::template call_connect<std::shared_ptr<T>>,
+                    this, std::placeholders::_1));
 
             if (this->has_read())
-                client->on_read(
-                    [=](auto c, auto msg) { this->call_read(c, msg); });
+                client->on_read(std::bind(
+                    &tcp_server::template call_read<std::shared_ptr<T>, data>,
+                    this, std::placeholders::_1, std::placeholders::_2));
 
             if (this->has_close())
-                client->on_close([=](auto c) { this->call_close(c); });
+                client->on_close(std::bind(
+                    &tcp_server::template call_close<std::shared_ptr<T>>, this,
+                    std::placeholders::_1));
 
             if (this->has_error())
-                client->on_error(
-                    [=](auto c, const auto &ec) { this->call_error(c, ec); });
+                client->on_error(std::bind(
+                    &tcp_server::template call_error<
+                        std::shared_ptr<T>, const boost::system::error_code &>,
+                    this, std::placeholders::_1, std::placeholders::_2));
 
             if (has_accept())
-                call_accept(client); // client->run() should be called in the
-                                     // accept function
+                call_accept(client); // client->run() should be called
+                                     // in the accept function
             else
-                logd("connection accepted, but no callback was provided");
+                logd("connection accepted, but no callback was "
+                     "provided");
 
             // Go for another accept loop and wait for a connection
             try_accept();
@@ -221,9 +245,7 @@ private:
     std::unique_ptr<io_service> m_io_ptr;
 
     async_accept_function<T> m_accept_f;
-
-    std::function<void(tcp_server *, const boost::system::error_code &)>
-        m_server_error_f;
+    async_server_error_function<tcp_server> m_server_error_f;
 
     std::thread m_thread;
 

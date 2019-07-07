@@ -36,41 +36,41 @@ template <typename T>
 using async_error_function =
     std::function<void(std::shared_ptr<T>, const boost::system::error_code &)>;
 
-template <typename T>
-using async_accept_function = std::function<void(std::shared_ptr<T>)>;
-
 /**
  * \class async_object
  * \brief Provides async callback functions to a derived class
  **/
 // T = connection type
 // U = object type (derivative)
-template <typename T, typename U = T>
+template <typename Derivative, typename T = Derivative>
 class async_object
 {
 public:
-    U &on_read(async_read_function<T> f)
+    async_object() = default;
+    virtual ~async_object() = default;
+
+    Derivative &on_read(async_read_function<T> f)
     {
         m_read_f = f;
-        return reinterpret_cast<U &>(*this);
+        return *reinterpret_cast<Derivative *>(this);
     }
 
-    U &on_connect(async_connect_function<T> f)
+    Derivative &on_connect(async_connect_function<T> f)
     {
         m_connect_f = f;
-        return reinterpret_cast<U &>(*this);
+        return *reinterpret_cast<Derivative *>(this);
     }
 
-    U &on_close(async_close_function<T> f)
+    Derivative &on_close(async_close_function<T> f)
     {
         m_close_f = f;
-        return reinterpret_cast<U &>(*this);
+        return *reinterpret_cast<Derivative *>(this);
     }
 
-    U &on_error(async_error_function<T> f)
+    Derivative &on_error(async_error_function<T> f)
     {
         m_error_f = f;
-        return reinterpret_cast<U &>(*this);
+        return *reinterpret_cast<Derivative *>(this);
     }
 
 protected:
@@ -368,10 +368,10 @@ protected:
 
     void close()
     {
-        if (connected()) {
-            boost::system::error_code ec; // No need to check, silently fail
-            m_socket->shutdown(ec);       // ssl stream shutdown
-        }
+        logd("close called");
+        boost::system::error_code ec; // No need to check, silently fail
+        m_socket->shutdown(ec);       // ssl stream shutdown
+        m_socket->lowest_layer().close();
     }
 
 private:
