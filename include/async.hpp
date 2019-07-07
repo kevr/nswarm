@@ -246,8 +246,9 @@ protected:
     }
 
     void start_resolve(tcp::resolver &resolver, const std::string &host,
-                       const std::string &port)
+                       const std::string &port) noexcept
     {
+        logd("resolving ", host, ":", port);
         tcp::resolver::query query(host, port);
         resolver.async_resolve(
             query, boost::bind(&T::async_on_resolve, this->shared_from_this(),
@@ -274,12 +275,12 @@ protected:
         }
     }
 
-    void close()
+    void close() noexcept
     {
         logd("close called");
         boost::system::error_code ec; // No need to check, silently fail
         m_socket->shutdown(ec);       // ssl stream shutdown
-        m_socket->lowest_layer().close();
+        m_socket->lowest_layer().close(ec);
     }
 
     void set_endpoint(const tcp::endpoint &ep)
