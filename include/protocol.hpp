@@ -11,20 +11,27 @@ namespace ns
 {
 
 template <typename T, typename D>
-using async_auth_function = std::function<void(std::shared_ptr<T>, D)>;
+using async_protocol_function = std::function<void(std::shared_ptr<T>, D)>;
 
 template <typename T, typename D>
-using async_provide_function = std::function<void(std::shared_ptr<T>, D)>;
+using async_auth_function = async_protocol_function<T, D>;
 
 template <typename T, typename D>
-using async_subscribe_function = std::function<void(std::shared_ptr<T>, D)>;
+using async_provide_function = async_protocol_function<T, D>;
 
 template <typename T, typename D>
-using async_task_function = std::function<void(std::shared_ptr<T>, D)>;
+using async_subscribe_function = async_protocol_function<T, D>;
+
+template <typename T, typename D>
+using async_task_function = async_protocol_function<T, D>;
 
 template <typename ConnectionT, typename DataT>
 class protocol
 {
+private:
+    using async_protocol_function =
+        ns::async_protocol_function<ConnectionT, DataT>;
+
 public:
     void set_external_log_address(const ConnectionT *conn)
     {
@@ -67,8 +74,7 @@ public:
         return m_provide_f != nullptr;
     }
 
-    protocol &
-    on_subscribe(async_subscribe_function<ConnectionT, DataT> subscribe_f)
+    protocol &on_subscribe(async_protocol_function subscribe_f)
     {
         m_subscribe_f = subscribe_f;
         call_table[data_type::subscribe] = m_subscribe_f;
@@ -86,7 +92,7 @@ public:
         return m_subscribe_f != nullptr;
     }
 
-    protocol &on_task(async_task_function<ConnectionT, DataT> task_f)
+    protocol &on_task(async_protocol_function task_f)
     {
         m_task_f = task_f;
         call_table[data_type::task] = m_task_f;
@@ -105,23 +111,16 @@ public:
     }
 
     template <typename... Args>
-    void call(ns::data_type type, Args &&... args)
+    void call(data_type type, Args &&... args)
     {
-        if (call_table.find(type) == call_table.end()) {
-            loge("data_type ", type, " not registered in call_table");
-            return;
-        }
         return call_table.at(type)(std::forward<Args>(args)...);
     }
 
 private:
-    async_auth_function<ConnectionT, DataT> m_auth_f;
-    async_provide_function<ConnectionT, DataT> m_provide_f;
-    async_subscribe_function<ConnectionT, DataT> m_subscribe_f;
-    async_task_function<ConnectionT, DataT> m_task_f;
-
-    using async_protocol_function =
-        std::function<void(std::shared_ptr<ConnectionT>, DataT)>;
+    async_protocol_function m_auth_f;
+    async_protocol_function m_provide_f;
+    async_protocol_function m_subscribe_f;
+    async_protocol_function m_task_f;
 
     std::map<uint16_t, async_protocol_function> call_table;
 

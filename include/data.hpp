@@ -24,6 +24,8 @@ enum data_type : uint16_t {
 
 };
 
+enum action_type : uint16_t { request, response };
+
 inline std::tuple<uint16_t, uint16_t, uint32_t>
 deserialize_packet(uint64_t data) noexcept
 {
@@ -131,9 +133,9 @@ public:
     // These three bitmask functions mask against the total
     // of their type, with their bits positioned at the
     // lower end of the result from the bitwise shift.
-    const uint16_t type() const noexcept
+    const ns::data_type type() const noexcept
     {
-        return m_type;
+        return static_cast<ns::data_type>(m_type);
     }
 
     const uint16_t flags() const noexcept

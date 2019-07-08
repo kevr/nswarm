@@ -117,9 +117,6 @@ private:
 private:
     std::unique_ptr<io_service> m_io_ptr;
 
-    std::string m_host;
-    std::string m_port;
-
     tcp::resolver m_resolver;
 
     std::string m_remote_host;
@@ -127,6 +124,9 @@ private:
 
 protected:
     ssl::context m_context;
+
+    std::string m_host;
+    std::string m_port;
 
     set_log_address;
 };
