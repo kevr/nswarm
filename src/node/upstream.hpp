@@ -104,7 +104,7 @@ private:
     {
         // Setup protocol callbacks
         on_auth([this](auto client, auto message) {
-            logi("on_auth response received");
+            logi("on_auth response received: ", message.get_string());
         })
             .on_provide([this](auto client, auto message) {
                 logi("on_provide response received");
@@ -114,6 +114,37 @@ private:
             })
             .on_task([this](auto client, auto message) {
                 logi("on_task request received");
+                // IMPORTANT: propagate request to service
+                // Propagate request onto a service that provides
+                // this event and/or method.
+                //
+                // In the service class, we'll provide a way to bind
+                // handlers to methods or events. method handlers
+                // will return a json serializable type, which
+                // will fill the "data" key of the response.
+                //
+                // Example functions:
+                //   auto f = [](std::vector<std::string> args) {
+                //      return args;
+                //   };
+                //
+                // service.provide("f", f);
+                //
+                // ...
+                // // task for method "f" comes in
+                // auto result = service.call("f", std::forward<Args>(args)...);
+                // ...
+                // auto request_json = message.get_json();
+                // response_json["task_id"] = request_json["task_id"];
+                //
+                // // serializes call result into message data
+                // response_json["data"] = result;
+                //
+                // auto response = response_json.dump();
+                // auto packet = serialize_packet(data_type::task,
+                //     action_type::response, response.size());
+                // send(data(packet, response));
+                //
             });
 
         on_connect([this](auto client) {
