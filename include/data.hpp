@@ -68,7 +68,7 @@ public:
     {
         m_type = (uint16_t)(packet >> 48);
         m_flags = (uint16_t)(packet >> 32);
-        m_size = data_value.size();
+        m_size = (uint32_t)packet;
         logd("data created with {", m_type, ", ", m_flags, ", ", m_data.size(),
              "}");
     }
@@ -153,11 +153,20 @@ public:
         return m_data;
     }
 
+    const json &get_json()
+    {
+        if (!m_json.size())
+            m_json = json::parse(m_data);
+        return m_json;
+    }
+
 private:
     uint16_t m_type = 0;
     uint16_t m_flags = 0;
     uint32_t m_size = 0;
     std::string m_data;
+
+    json m_json;
 
 protected:
     set_log_address;
