@@ -22,16 +22,17 @@
 namespace ns
 {
 
-class tcp_client : public async_io_object<tcp_client>
+template <typename T>
+class client : public async_io_object<T>
 {
 public:
-    // Create a tcp_client with an independent io_service
-    tcp_client() noexcept
+    // Create a client with an independent io_service
+    client() noexcept
         : m_io_ptr(std::make_unique<io_service>())
         , m_context(ssl::context::sslv23)
         , m_resolver(*m_io_ptr)
     {
-        initialize_socket(*m_io_ptr, m_context);
+        this->initialize_socket(*m_io_ptr, m_context);
 
         // Override this outside as a user before connecting if you
         // wish to verify ssl certificates.
@@ -39,25 +40,25 @@ public:
         logd("default object created");
     }
 
-    // Create a tcp_client with an external io_service
-    tcp_client(io_service &io) noexcept
+    // Create a client with an external io_service
+    client(io_service &io) noexcept
         : m_context(ssl::context::sslv23)
         , m_resolver(io)
     {
-        initialize_socket(m_resolver.get_io_service(), m_context);
+        this->initialize_socket(m_resolver.get_io_service(), m_context);
 
         // Override this outside as a user before connecting if you
         // wish to verify ssl certificates.
-        set_verify_mode(ssl::context::verify_none);
+        this->set_verify_mode(ssl::context::verify_none);
         logd("object created with external io_service");
     }
 
     // We cannot copy clients around.
-    tcp_client(const tcp_client &) = delete;
-    void operator=(const tcp_client &) = delete;
+    client(const client &) = delete;
+    void operator=(const client &) = delete;
 
     // Provide move construction and assignment
-    tcp_client(tcp_client &&other) noexcept
+    client(client &&other) noexcept
         : m_io_ptr(std::move(other.m_io_ptr))
         , m_context(std::move(other.m_context))
         , m_resolver(std::move(other.m_resolver))
@@ -65,24 +66,24 @@ public:
         this->socket_ptr() = std::move(other.socket_ptr());
     }
 
-    void operator=(tcp_client &&other) noexcept
+    void operator=(client &&other) noexcept
     {
         m_io_ptr = std::move(other.m_io_ptr);
         m_context = std::move(other.m_context);
-        socket_ptr() = std::move(other.socket_ptr());
+        this->socket_ptr() = std::move(other.socket_ptr());
         m_resolver = std::move(other.m_resolver);
     }
 
-    ~tcp_client() noexcept = default;
+    ~client() noexcept = default;
 
     template <typename VerifyMode>
     void set_verify_mode(VerifyMode mode)
     {
-        socket().set_verify_mode(mode);
+        this->socket().set_verify_mode(mode);
     }
 
     // make this publicly accessible
-    using async_io_object::close;
+    using async_io_object<T>::close;
 
     // run/stop wrap around an optional m_io_ptr
     void run(const std::string &host, const std::string &port) noexcept
@@ -97,7 +98,7 @@ public:
         if (m_io_ptr)
             m_io_ptr->stop();
         else
-            socket().get_io_service().stop();
+            this->socket().get_io_service().stop();
     }
 
 private:
@@ -105,7 +106,7 @@ private:
     {
         m_host = host;
         m_port = port;
-        start_resolve(m_resolver, m_host, m_port);
+        this->start_resolve(m_resolver, m_host, m_port);
     }
 
     void store_endpoint(const tcp::resolver::endpoint_type ep) noexcept
@@ -131,8 +132,14 @@ protected:
     set_log_address;
 };
 
-// Factory function for creating a tcp_client. Always use this
-// function to create one, since we require that tcp_client
+class tcp_client : public client<tcp_client>
+{
+public:
+    using client::client;
+};
+
+// Factory function for creating a client. Always use this
+// function to create one, since we require that client
 // is created set into a shared_ptr before running it's async
 // functions.
 template <typename... Args>

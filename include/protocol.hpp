@@ -113,7 +113,7 @@ public:
     template <typename... Args>
     void call(data_type type, Args &&... args)
     {
-        return call_table.at(type)(std::forward<Args>(args)...);
+        call_table.at(type)(std::forward<Args>(args)...);
     }
 
 private:
@@ -122,7 +122,7 @@ private:
     async_protocol_function m_subscribe_f;
     async_protocol_function m_task_f;
 
-    std::map<uint16_t, async_protocol_function> call_table;
+    std::map<data_type, async_protocol_function> call_table;
 
     set_log_address;
 };
