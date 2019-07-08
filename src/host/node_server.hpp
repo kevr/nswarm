@@ -64,8 +64,19 @@ public:
         // Bind protocol callbacks
         m_proto
             .on_auth([this](auto c, auto msg) {
+                logi("on_auth invoked, authenticating against: ",
+                     msg.get_string());
                 c->authenticate();
-                logi("on_auth invoked, authenticated");
+
+                auto json = msg.get_json();
+                json["data"] = true;
+
+                auto json_str = json.dump();
+                ns::data data(serialize_packet(msg.type(),
+                                               action_type::response,
+                                               json_str.size()),
+                              json_str);
+                c->send(data);
             })
             .on_provide([this](auto c, auto msg) {
                 if (!c->authenticated()) {
