@@ -29,3 +29,6 @@ target_link_libraries(server_test gtest_main )
 
 add_executable(node_server_test node_server_test.cpp)
 target_link_libraries(node_server_test gtest_main )
+
+add_executable(node_upstream_test node_upstream_test.cpp)
+target_link_libraries(node_upstream_test gtest_main )
