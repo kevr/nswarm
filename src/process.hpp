@@ -79,13 +79,13 @@ inline uint64_t bytes_in_use()
                 *get_fields(line);
 
             bytes += (uint64_t)std::stoul(kbUse);
-
-            logd("Memory in use: ", kbUse, "kB");
             // We have some  bytes!
         }
     }
 
     bytes *= 1000;
+
+    logd("found bytes in use: ", bytes);
     return bytes;
 }
 
