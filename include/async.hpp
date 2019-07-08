@@ -370,10 +370,11 @@ private:
             if (x.size() > 0) {
                 boost::asio::async_read(
                     *m_socket, m_input, boost::asio::transfer_exactly(x.size()),
-                    boost::bind(
-                        &T::async_on_read_data, this->shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred, x));
+                    boost::bind(&T::async_on_read_data,
+                                this->shared_from_this(),
+                                boost::asio::placeholders::error,
+                                boost::asio::placeholders::bytes_transferred,
+                                std::move(x)));
             } else {
                 // IMPORTANT: This is all wrong. We need better overrides for
                 // ns::data

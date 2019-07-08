@@ -54,23 +54,14 @@ class data
 public:
     data() = default;
 
-    data(uint16_t type, uint16_t flags,
-         std::string data_value = std::string()) noexcept
-        : m_type(type)
-        , m_flags(flags)
-        , m_size(data_value.size())
-        , m_data(std::move(data_value))
-    {
-    }
-
     data(uint64_t packet, std::string data_value = std::string()) noexcept
         : m_data(std::move(data_value))
     {
         m_type = (uint16_t)(packet >> 48);
         m_flags = (uint16_t)(packet >> 32);
         m_size = (uint32_t)packet;
-        logd("data created with {", m_type, ", ", m_flags, ", ", m_data.size(),
-             "}");
+        logd("data created with {", m_type, ", ", m_flags, ", ", m_size,
+             "}, real data size = ", m_data.size());
     }
 
     data(const data &other) noexcept
@@ -109,20 +100,21 @@ public:
 
     void read_packet(std::istream &is)
     {
+        trace();
         uint64_t packet = 0;
         is.read(reinterpret_cast<char *>(&packet), sizeof(uint64_t));
-        auto [type, flags, size] = deserialize_packet(packet);
-        m_type = type;
-        m_flags = flags;
-        m_size = size;
         *this = data(packet);
+        logd("data updated with packet data = { ", m_type, ", ", m_flags, ", ",
+             m_size, " }");
     }
 
     void read_data(std::istream &is)
     {
+        trace();
         std::string value(m_size, '\0');
         is.read(&value[0], m_size);
         m_data = std::move(value);
+        logd("data updated with real data size = ", m_data.size());
     }
 
     const uint64_t packet() const noexcept
@@ -138,9 +130,9 @@ public:
         return static_cast<ns::data_type>(m_type);
     }
 
-    const uint16_t flags() const noexcept
+    const ns::action_type flags() const noexcept
     {
-        return m_flags;
+        return static_cast<ns::action_type>(m_flags);
     }
 
     const uint32_t size() const noexcept
