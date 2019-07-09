@@ -72,7 +72,7 @@ public:
                 json["data"] = true;
 
                 auto json_str = json.dump();
-                ns::data data(serialize_packet(msg.type(),
+                ns::data data(serialize_header(msg.type(),
                                                action_type::response,
                                                json_str.size()),
                               json_str);
@@ -116,8 +116,10 @@ public:
                     m_proto.call(static_cast<ns::data_type>(msg.type()), client,
                                  msg);
                 } catch (std::exception &e) {
-                    loge("exception thrown while calling protocol method type ",
-                         msg.type(), ": ", e.what());
+                    auto type = ns::data_type_string(msg.type());
+                    loge(
+                        "exception thrown while calling protocol method type [",
+                        type, "]: ", e.what());
                 }
             })
             .on_close([this](auto client) {

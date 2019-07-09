@@ -27,25 +27,25 @@ enum data_type : uint16_t {
 enum action_type : uint16_t { request, response };
 
 inline std::tuple<uint16_t, uint16_t, uint32_t>
-deserialize_packet(uint64_t data) noexcept
+deserialize_header(uint64_t data) noexcept
 {
-    logd("deserialize_packet = ", std::bitset<64>(data));
+    logd("deserialize_header = ", std::bitset<64>(data));
     uint16_t a = (uint16_t)(data >> 48);
     uint16_t b = (uint16_t)(data >> 32);
     uint32_t c = (uint32_t)data;
-    logd("deserialize_packet(", a, ", ", b, ", ", c, ")");
+    logd("deserialize_header(", a, ", ", b, ", ", c, ")");
     return std::make_tuple(a, b, c);
 }
 
 // [16 bytes message_type][16 bytes arbitrary_flags][32 bytes data_size]
-inline uint64_t serialize_packet(uint16_t a, uint16_t b, uint32_t c) noexcept
+inline uint64_t serialize_header(uint16_t a, uint16_t b, uint32_t c) noexcept
 {
-    logd("serialize_packet(", a, ", ", b, ", ", c, ")");
+    logd("serialize_header(", a, ", ", b, ", ", c, ")");
     uint64_t data = 0;
     data |= ((uint64_t)(a)) << 48;
     data |= ((uint64_t)(b)) << 32;
     data |= ((uint64_t)(c));
-    logd("serialize_packet = ", std::bitset<64>(data));
+    logd("serialize_header = ", std::bitset<64>(data));
     return data;
 }
 
@@ -54,12 +54,12 @@ class data
 public:
     data() = default;
 
-    data(uint64_t packet, std::string data_value = std::string()) noexcept
+    data(uint64_t header, std::string data_value = std::string()) noexcept
         : m_data(std::move(data_value))
     {
-        m_type = (uint16_t)(packet >> 48);
-        m_flags = (uint16_t)(packet >> 32);
-        m_size = (uint32_t)packet;
+        m_type = (uint16_t)(header >> 48);
+        m_flags = (uint16_t)(header >> 32);
+        m_size = (uint32_t)header;
         logd("data created with {", m_type, ", ", m_flags, ", ", m_size,
              "}, real data size = ", m_data.size());
     }
@@ -98,13 +98,13 @@ public:
         return *this;
     }
 
-    void read_packet(std::istream &is)
+    void read_header(std::istream &is)
     {
         trace();
-        uint64_t packet = 0;
-        is.read(reinterpret_cast<char *>(&packet), sizeof(uint64_t));
-        *this = data(packet);
-        logd("data updated with packet data = { ", m_type, ", ", m_flags, ", ",
+        uint64_t header = 0;
+        is.read(reinterpret_cast<char *>(&header), sizeof(uint64_t));
+        *this = data(header);
+        logd("data updated with header data = { ", m_type, ", ", m_flags, ", ",
              m_size, " }");
     }
 
@@ -117,9 +117,9 @@ public:
         logd("data updated with real data size = ", m_data.size());
     }
 
-    const uint64_t packet() const noexcept
+    const uint64_t header() const noexcept
     {
-        return serialize_packet(m_type, m_flags, m_size);
+        return serialize_header(m_type, m_flags, m_size);
     }
 
     // These three bitmask functions mask against the total
@@ -164,6 +164,40 @@ protected:
     set_log_address;
 };
 
+inline std::string data_type_string(const data_type &type)
+{
+    static const std::map<data_type, std::string> types{
+        {data_type::auth, "data_type::auth"},
+        {data_type::provide, "data_type::provide"},
+        {data_type::subscribe, "data_type::subscribe"},
+        {data_type::task, "data_type::task"},
+    };
+    return types.at(type);
+}
+
+inline std::string action_type_string(const action_type &type)
+{
+    static const std::map<action_type, std::string> types{
+        {action_type::request, "action_type::request"},
+        {action_type::response, "action_type::response"},
+    };
+    return types.at(type);
+}
+
 }; // namespace ns
+
+inline std::stringstream &operator<<(std::stringstream &os,
+                                     const ns::data_type &type)
+{
+    os << ns::data_type_string(type);
+    return os;
+}
+
+inline std::stringstream &operator<<(std::stringstream &os,
+                                     const ns::action_type &type)
+{
+    os << ns::action_type_string(type);
+    return os;
+}
 
 #endif

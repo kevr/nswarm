@@ -175,18 +175,18 @@ public:
     {
         if (data.size() != data.get_string().size())
             throw std::invalid_argument(
-                "data_size in packet mismatched string data size: " +
+                "data_size in header mismatched string data size: " +
                 std::to_string(data.size()) + " vs " +
                 std::to_string(data.get_string().size()));
 
-        uint64_t packet = data.packet();
-        m_os.write(reinterpret_cast<char *>(&packet), sizeof(uint64_t));
+        uint64_t header = data.header();
+        m_os.write(reinterpret_cast<char *>(&header), sizeof(uint64_t));
         if (data.size()) {
             m_os.write(data.get_string().data(), data.size());
         }
         boost::asio::async_write(
             *m_socket, m_output,
-            boost::asio::transfer_exactly(data.size() + sizeof(data.packet())),
+            boost::asio::transfer_exactly(data.size() + sizeof(data.header())),
             boost::bind(&T::async_on_write, this->shared_from_this(),
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
@@ -197,13 +197,13 @@ public:
     {
         uint32_t data_size = 0; // Assume no data
 
-        // Here: if data is present, serialize_packet with the real data size
+        // Here: if data is present, serialize_header with the real data size
         // and set data_size at the same time.
         uint64_t pkt =
-            data ? serialize_packet(type, flags, data_size)
-                 : serialize_packet(type, flags, (data_size = data->size()));
+            data ? serialize_header(type, flags, data_size)
+                 : serialize_header(type, flags, (data_size = data->size()));
 
-        m_os << pkt; // Put the packet header into the stream
+        m_os << pkt; // Put the header header into the stream
         if (data)
             m_os << *data;
 
@@ -351,7 +351,7 @@ private:
         }
     }
 
-    void async_on_read_packet(const boost::system::error_code &ec,
+    void async_on_read_header(const boost::system::error_code &ec,
                               std::size_t bytes) noexcept
     {
         trace();
@@ -359,13 +359,15 @@ private:
         if (!ec) {
 
             data x;
-            x.read_packet(m_is);
+            x.read_header(m_is);
 
-            logd("packet received (bits): ",
-                 std::bitset<sizeof(uint64_t) * 8>(x.packet()));
+            logd("header received: ",
+                 std::bitset<sizeof(uint64_t) * 8>(x.header()));
 
-            logd("deserialized packet: type = ", x.type(),
-                 ", flags = ", x.flags(), " size = ", x.size());
+            auto type = ns::data_type_string(x.type());
+            auto flags = ns::action_type_string(x.flags());
+            logd("deserialized header: type = ", type, ", flags = ", flags,
+                 ", size = ", x.size());
 
             if (x.size() > 0) {
                 boost::asio::async_read(
@@ -384,7 +386,7 @@ private:
                 start_read();
             }
         } else {
-            handle_error(ec, "client socket closed while reading data packet");
+            handle_error(ec, "client socket closed while reading data header");
         }
     }
 
@@ -423,7 +425,7 @@ private:
     {
         boost::asio::async_read(
             *m_socket, m_input, boost::asio::transfer_exactly(sizeof(uint64_t)),
-            boost::bind(&T::async_on_read_packet, this->shared_from_this(),
+            boost::bind(&T::async_on_read_header, this->shared_from_this(),
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
     }

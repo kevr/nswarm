@@ -83,7 +83,8 @@ TEST_F(server_test, server_serializes_properly)
         ->on_connect([](auto c) {
             logi("client connected to ", c->remote_host(), ":",
                  c->remote_port());
-            ns::data x(ns::data_type::auth, 0);
+            ns::data x(serialize_header(ns::data_type::auth,
+                                        ns::action_type::request, 0));
             c->send(x);
         })
         .on_read([](auto client, auto data) { logi("read data"); })

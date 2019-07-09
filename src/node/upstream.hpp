@@ -37,10 +37,10 @@ public:
         js["key"] = key;
 
         auto json_str = js.dump();
-        auto packet = serialize_packet(data_type::auth, action_type::request,
+        auto header = serialize_header(data_type::auth, action_type::request,
                                        json_str.size());
 
-        auto data = ns::data(packet, json_str);
+        auto data = ns::data(header, json_str);
         send(data);
     }
 
@@ -51,10 +51,10 @@ public:
         js["method"] = method;
 
         auto json_str = js.dump();
-        auto packet = serialize_packet(data_type::provide, action_type::request,
+        auto header = serialize_header(data_type::provide, action_type::request,
                                        json_str.size());
 
-        auto data = ns::data(packet, json_str);
+        auto data = ns::data(header, json_str);
         send(data);
     }
 
@@ -64,10 +64,10 @@ public:
         js["event"] = event;
 
         auto json_str = js.dump();
-        auto packet = serialize_packet(data_type::subscribe,
+        auto header = serialize_header(data_type::subscribe,
                                        action_type::request, json_str.size());
 
-        auto data = ns::data(packet, json_str);
+        auto data = ns::data(header, json_str);
         send(data);
     }
 
@@ -90,10 +90,10 @@ public:
         js["data"] = response;
 
         auto json_str = js.dump();
-        auto packet = serialize_packet(data_type::task, action_type::response,
+        auto header = serialize_header(data_type::task, action_type::response,
                                        json_str.size());
 
-        auto data = ns::data(packet, json_str);
+        auto data = ns::data(header, json_str);
         send(data);
     }
 
@@ -141,9 +141,9 @@ private:
                 // response_json["data"] = result;
                 //
                 // auto response = response_json.dump();
-                // auto packet = serialize_packet(data_type::task,
+                // auto header = serialize_header(data_type::task,
                 //     action_type::response, response.size());
-                // send(data(packet, response));
+                // send(data(header, response));
                 //
             });
 
