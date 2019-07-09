@@ -99,12 +99,21 @@ public:
 
     virtual ~upstream() = default;
 
+    const bool authenticated() const
+    {
+        return m_authed;
+    }
+
 private:
     void init()
     {
         // Setup protocol callbacks
         on_auth([this](auto client, auto message) {
             logi("on_auth response received: ", message.get_string());
+            auto json = message.get_json();
+            if (json["data"]) {
+                m_authed = true;
+            }
         })
             .on_provide([this](auto client, auto message) {
                 logi("on_provide response received");
@@ -178,6 +187,8 @@ private:
     }
 
 private:
+    bool m_authed = false;
+
     set_log_address;
 
 }; // class upstream

@@ -1,5 +1,6 @@
 #include "host/node_server.hpp"
 #include "node/upstream.hpp"
+#include "util.hpp"
 #include <gtest/gtest.h>
 
 using namespace ns;
@@ -31,5 +32,5 @@ TEST_F(node_upstream_test, auth_works)
         client->auth("abcd");
     });
     upstream->run("localhost", "6666");
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    ns::wait_until([&] { return upstream->authenticated(); });
 }
