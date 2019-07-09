@@ -173,17 +173,31 @@ public:
 
     void send(const data &data)
     {
-        if (data.size() != data.get_string().size())
+        const auto &str = data.get_string();
+
+        // payload size cannot be larger than our data_size segment of header
+        if (str.size() > std::numeric_limits<uint32_t>::max())
+            throw std::out_of_range(
+                "data.size() is too large. maximum payload size is "
+                "std::numeric_limits<uint32_t>::max(): " +
+                std::to_string(std::numeric_limits<uint32_t>::max()));
+
+        // data.size() *must* be equivalent to payload size
+        if (data.size() != str.size())
             throw std::invalid_argument(
                 "data_size in header mismatched string data size: " +
                 std::to_string(data.size()) + " vs " +
                 std::to_string(data.get_string().size()));
 
+        // We should send a valid header no matter what.
         uint64_t header = data.header();
         m_os.write(reinterpret_cast<char *>(&header), sizeof(uint64_t));
+
+        // If data was provided, write it to the stream
         if (data.size()) {
-            m_os.write(data.get_string().data(), data.size());
+            m_os.write(str.data(), data.size());
         }
+
         boost::asio::async_write(
             *m_socket, m_output,
             boost::asio::transfer_exactly(data.size() + sizeof(data.header())),
