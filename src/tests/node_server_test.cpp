@@ -66,10 +66,11 @@ TEST_F(node_server_test, server_authenticates)
     // Wait until client is connected.
     // We need a better wait to wait until a client is added
     // on the server side.
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ns::wait_until([&] { return client->connected(); });
     EXPECT_EQ(m_server->count(), 1);
     client->close();
 
+    ns::wait_until([&] { return !client->connected(); });
     m_server->stop();
     EXPECT_EQ(m_server->count(), 0);
 }
