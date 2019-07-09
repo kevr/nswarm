@@ -12,6 +12,8 @@
 
 #include "logging.hpp"
 #include <mutex>
+#include <stdexcept>
+#include <thread>
 
 namespace ns
 {
@@ -37,6 +39,23 @@ public:
 private:
     std::lock_guard<T> m_guard;
 };
+
+template <typename Predicate>
+void wait_until(Predicate p, int32_t timeout = 60)
+{
+    int32_t timeout_ms = 60 * 1000;
+    while (timeout_ms > 0) {
+        if (p()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            return;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        timeout_ms -= 10;
+    }
+    throw std::out_of_range(
+        "wait_until timeout reached: " + std::to_string(timeout) + " seconds");
+}
+
 }; // namespace ns
 
 #endif
