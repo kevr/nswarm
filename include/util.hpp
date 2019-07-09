@@ -41,10 +41,10 @@ private:
 };
 
 template <typename Predicate>
-void wait_until(Predicate p, int32_t timeout = 60)
+void wait_until(Predicate p, int64_t timeout = 60)
 {
     logd("waiting ", timeout, " seconds until predicate is true");
-    int32_t timeout_ms = 60 * 1000;
+    int64_t timeout_ms = 60 * 1000;
     while (timeout_ms > 0) {
         if (p()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
