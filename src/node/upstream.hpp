@@ -9,6 +9,7 @@
 #ifndef NS_NODE_UPSTREAM_HPP
 #define NS_NODE_UPSTREAM_HPP
 
+#include "auth.hpp"
 #include "client.hpp"
 #include "data.hpp"
 #include "protocol.hpp"
@@ -27,6 +28,7 @@ public:
     // would be overkill.
     upstream(io_service &io)
         : client(io)
+        , m_auth("abcd")
     {
         init();
     }
@@ -101,7 +103,7 @@ public:
 
     const bool authenticated() const
     {
-        return m_authed;
+        return m_auth.authenticated();
     }
 
 private:
@@ -112,7 +114,7 @@ private:
             logi("on_auth response received: ", message.get_string());
             auto json = message.get_json();
             if (json["data"]) {
-                m_authed = true;
+                m_auth.authenticate(json["key"]);
             }
         })
             .on_provide([this](auto client, auto message) {
@@ -187,8 +189,7 @@ private:
     }
 
 private:
-    bool m_authed = false;
-
+    auth_context<authentication::plain> m_auth;
     set_log_address;
 
 }; // class upstream
