@@ -55,7 +55,8 @@ TEST_F(node_server_test, server_authenticates)
     client
         ->on_connect([](auto c) {
             logi("connected to ", c->remote_host(), ":", c->remote_port());
-            uint64_t header = ns::serialize_header(ns::data_type::auth, 0, 0);
+            uint64_t header = ns::serialize_header(ns::data_type::auth,
+                                                   ns::action_type::request, 0);
             ns::data x(header);
             c->send(x);
         })
