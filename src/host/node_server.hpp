@@ -9,6 +9,7 @@
 #ifndef NS_HOST_NODE_SERVER
 #define NS_HOST_NODE_SERVER
 
+#include "auth.hpp"
 #include "protocol.hpp"
 #include "server.hpp"
 #include <set>
@@ -42,19 +43,22 @@ private:
     set_log_address;
 };
 
-class node_server : public tcp_server<node_connection>
+class node_server : public tcp_server<node_connection>,
+                    protected protocol<node_connection, ns::data>
 {
 public:
     using tcp_server::tcp_server;
 
     node_server(unsigned short port)
         : tcp_server(port)
+        , m_auth("")
     {
         init();
     }
 
     node_server(io_service &io, unsigned short port)
         : tcp_server(io, port)
+        , m_auth("")
     {
         init();
     }
@@ -62,22 +66,18 @@ public:
     void init()
     {
         // Bind protocol callbacks
-        m_proto
-            .on_auth([this](auto c, auto msg) {
-                logi("on_auth invoked, authenticating against: ",
-                     msg.get_string());
-                c->authenticate();
+        on_auth([this](auto c, auto msg) {
+            logi("on_auth invoked, authenticating against: ", msg.get_string());
 
-                auto json = msg.get_json();
-                json["data"] = true;
+            auto json = msg.get_json();
+            json["data"] = m_auth.authenticate("");
 
-                auto json_str = json.dump();
-                ns::data data(serialize_header(msg.type(),
-                                               action_type::response,
-                                               json_str.size()),
-                              json_str);
-                c->send(data);
-            })
+            auto json_str = json.dump();
+            ns::data data(serialize_header(msg.type(), action_type::response,
+                                           json_str.size()),
+                          json_str);
+            c->send(data);
+        })
             .on_provide([this](auto c, auto msg) {
                 if (!c->authenticated()) {
                     loge("client not authenticated during on_subscribe");
@@ -99,7 +99,7 @@ public:
                     loge("client not authenticated during on_task");
                     c->close();
                 } else {
-                    // respond to task request
+                    // respond to task response
                 }
             });
 
@@ -113,8 +113,7 @@ public:
             .on_read([this](auto client, auto msg) {
                 // When we read from a node, use m_proto to decide what to do.
                 try {
-                    m_proto.call(static_cast<ns::data_type>(msg.type()), client,
-                                 msg);
+                    this->call(msg.type(), client, msg);
                 } catch (std::exception &e) {
                     auto type = ns::data_type_string(msg.type());
                     loge(
@@ -148,10 +147,10 @@ protected:
 
 private:
     std::set<std::shared_ptr<node_connection>> m_nodes;
-    protocol<node_connection, data> m_proto;
+    auth_context<authentication::plain> m_auth;
 
     set_log_address;
-};
+}; // namespace host
 
 }; // namespace host
 }; // namespace ns
