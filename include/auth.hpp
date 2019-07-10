@@ -40,16 +40,16 @@ template <>
 struct method<sha256> {
     static bool compare(const std::string &src, const std::string &tgt)
     {
-        // return hash(src) == tgt;
-        return false;
+        return src == tgt;
     }
 };
-
 // M = method type: plain|sha256
 template <typename M>
 class context
 {
 public:
+    context() = default;
+
     // stored_key should be the key we'll compare
     // incoming authentications against.
     // If M = plain, this should be the plain key.
@@ -94,6 +94,10 @@ public:
 
     bool authenticate(const std::string &key)
     {
+        if (m_key.size() == 0) {
+            loge("cannot auth against an empty target key");
+            return false;
+        }
         m_authed.exchange(compare(key));
         return m_authed.load();
     }
@@ -109,6 +113,12 @@ private:
 };
 
 }; // namespace authentication
+
+#ifdef ENABLE_SHA256
+using auth_type = authentication::sha256;
+#else
+using auth_type = authentication::plain;
+#endif
 
 template <typename T>
 using auth_context = authentication::context<T>;

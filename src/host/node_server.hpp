@@ -51,16 +51,20 @@ public:
 
     node_server(unsigned short port)
         : tcp_server(port)
-        , m_auth("")
     {
         init();
     }
 
     node_server(io_service &io, unsigned short port)
         : tcp_server(io, port)
-        , m_auth("")
     {
         init();
+    }
+
+    node_server &set_auth_key(const std::string &key)
+    {
+        m_auth = auth_context<auth_type>(key);
+        return *this;
     }
 
     void init()
@@ -70,7 +74,7 @@ public:
             logi("on_auth invoked, authenticating against: ", msg.get_string());
 
             auto json = msg.get_json();
-            json["data"] = m_auth.authenticate("");
+            json["data"] = m_auth.authenticate(json["key"]);
 
             auto json_str = json.dump();
             ns::data data(serialize_header(msg.type(), action_type::response,
@@ -147,7 +151,7 @@ protected:
 
 private:
     std::set<std::shared_ptr<node_connection>> m_nodes;
-    auth_context<authentication::plain> m_auth;
+    auth_context<auth_type> m_auth;
 
     set_log_address;
 }; // namespace host
