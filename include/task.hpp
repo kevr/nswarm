@@ -22,7 +22,7 @@ namespace ns
  *     call (0): Call a provided method
  *     emit (1): Emit a subscribed to event
  **/
-enum task_type : uint16_t { call, emit };
+enum task_type : uint16_t { call = 1, emit = 2 };
 
 namespace tasks
 {

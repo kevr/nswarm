@@ -21,10 +21,14 @@ enum data_type : uint16_t {
     provide,   // Provide a method: node -> host
     subscribe, // Subscribe to an event: node -> host
     task,      // Method or event task: api -> host -> node -> host -> api
-
 };
 
-enum action_type : uint16_t { request, response };
+enum action_type : uint16_t { request = 0, response = 1 };
+
+inline uint16_t make_flags(uint16_t params, uint16_t action) noexcept
+{
+    return (params << 1) | (action & 1);
+}
 
 inline std::tuple<uint16_t, uint16_t, uint32_t>
 deserialize_header(uint64_t data) noexcept
@@ -47,6 +51,14 @@ inline uint64_t serialize_header(uint16_t a, uint16_t b, uint32_t c) noexcept
     data |= ((uint64_t)(c));
     logd("serialize_header = ", std::bitset<64>(data));
     return data;
+}
+
+// [16 bits message_type][15 bits params][1 bit direction][32 bits data_size]
+inline uint64_t serialize_header(uint16_t a, uint16_t ba, uint16_t bb,
+                                 uint32_t c) noexcept
+{
+    logd("serialize_header(", a, ", ", ba, ", ", bb, ", ", c, ")");
+    return serialize_header(a, make_flags(ba, bb), c);
 }
 
 class data
@@ -126,6 +138,20 @@ public:
     const ns::data_type type() const noexcept
     {
         return static_cast<ns::data_type>(m_type);
+    }
+
+    // Actually 24 bytes of data
+    const uint16_t params() const noexcept
+    {
+        // the left-most 15 bits
+        return m_flags >> 1;
+    }
+
+    const ns::action_type direction() const noexcept
+    {
+        // the right-most bit
+        const uint16_t DIRECTION_MASK = 1;
+        return static_cast<ns::action_type>(m_flags & DIRECTION_MASK);
     }
 
     const ns::action_type flags() const noexcept

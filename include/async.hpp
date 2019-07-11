@@ -379,8 +379,9 @@ private:
                  std::bitset<sizeof(uint64_t) * 8>(x.header()));
 
             auto type = ns::data_type_string(x.type());
-            auto flags = ns::action_type_string(x.flags());
-            logd("deserialized header: type = ", type, ", flags = ", flags,
+            auto direction = ns::action_type_string(x.direction());
+            logd("deserialized header: type = ", type,
+                 ", params = ", x.params(), ", direction = ", direction,
                  ", size = ", x.size());
 
             if (x.size() > 0) {
