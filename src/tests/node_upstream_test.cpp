@@ -38,19 +38,10 @@ TEST_F(node_upstream_test, auth_works)
     ns::wait_until([&] { return upstream->authenticated(); });
 }
 
-TEST_F(node_upstream_test, task_works)
+TEST_F(node_upstream_test, task_response)
 {
     // First, authenticate on a client. Then send a task.
     using namespace ns::tasks;
-
-    ns::data task_msg;
-    {
-        auto task = tasks::task<tasks::emit>("taskUUID");
-        auto task_str = task.serialize(json::parse("{\"event\":\"test\"}"));
-        task_msg = ns::data(
-            serialize_header(ns::data_type::task, task.type(), task_str.size()),
-            task_str);
-    }
 
     auto upstream = std::make_shared<node::upstream>(m_server.get_io_service());
     upstream->on_connect([this](auto client) {
@@ -58,7 +49,9 @@ TEST_F(node_upstream_test, task_works)
         client->auth("abcd");
     });
     upstream->run("localhost", "6666");
+    // authenticated() is a higher level, thread safe function
     ns::wait_until([&] { return upstream->authenticated(); });
-    upstream->send(task_msg);
+    upstream->respond("taskUUID", ns::task_type::emit,
+                      std::vector<std::string>());
     std::this_thread::sleep_for(std::chrono::seconds(1));
 }

@@ -13,6 +13,7 @@
 #include "client.hpp"
 #include "data.hpp"
 #include "protocol.hpp"
+#include "task.hpp"
 
 namespace ns
 {
@@ -85,15 +86,17 @@ public:
     // respond("1234", "hello!");
     //
     template <typename T>
-    void respond(const std::string &task_id, const T &response)
+    void respond(const std::string &task_id, task_type task_t,
+                 const T &response)
     {
         json js;
         js["task_id"] = task_id;
         js["data"] = response;
 
         auto json_str = js.dump();
-        auto header = serialize_header(data_type::task, action_type::response,
-                                       json_str.size());
+        auto header = serialize_header(
+            data_type::task, make_flags(task_t, action_type::response),
+            json_str.size());
 
         auto data = ns::data(header, json_str);
         send(data);
