@@ -292,7 +292,7 @@ protected:
 
     void close() noexcept
     {
-        logd("close called");
+        logd("close called, dispatching to io_service");
         boost::system::error_code ec; // No need to check, silently fail
         m_socket->shutdown(ec);       // ssl stream shutdown
         m_socket->lowest_layer().close(ec);

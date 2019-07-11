@@ -10,10 +10,10 @@ project( nswarm )
 cmake_minimum_required( VERSION 2.4 )
 
 # Add target linker flags here
-set(PROJECT_LIBS "-ltcmalloc -lpthread -lgtest -lboost_program_options -lboost_system -lssl -lcrypto")
+set(PROJECT_LIBS "-ltcmalloc -lpthread -lgtest -lboost_program_options -lboost_system -lssl -lcrypto -ltsan")
 
 # We require a C++17 compliant compiler
-set(CMAKE_CXX_FLAGS "-std=c++17 -O3")
+set(CMAKE_CXX_FLAGS "-std=c++17 -g -fsanitize=thread")
 set(CMAKE_CXX_STANDARD_LIBRARIES ${PROJECT_LIBS})
 
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include )

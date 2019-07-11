@@ -115,6 +115,8 @@ private:
             auto json = message.get_json();
             if (json["data"]) {
                 m_auth.authenticate(json["key"]);
+            } else {
+                this->close();
             }
         })
             .on_provide([this](auto client, auto message) {
@@ -168,6 +170,11 @@ private:
                     this->call(msg.type(), client, msg);
                 } catch (std::out_of_range &e) {
                     loge("no type handler bound for: ", msg.type());
+                } catch (json::parse_error &e) {
+                    if (this->has_error()) {
+                        this->call_error(client,
+                                         boost::asio::error::invalid_argument);
+                    }
                 } catch (std::exception &e) {
                     loge("exception caught while running call for data type: ",
                          msg.type(), "; message: ", e.what());

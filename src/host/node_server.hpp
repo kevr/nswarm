@@ -20,26 +20,20 @@ namespace ns
 namespace host
 {
 
-class node_connection : public connection<node_connection>
+class node_connection : public connection<node_connection>,
+                        public auth_context<auth_type>
 {
 public:
     using connection::connection;
-
     virtual ~node_connection() = default;
 
-    void authenticate()
+    node_connection &set_auth_key(const std::string &key)
     {
-        m_auth = true;
-    }
-
-    bool authenticated() const
-    {
-        return m_auth;
+        auth_context<auth_type>::operator=(auth_context<auth_type>(key));
+        return *this;
     }
 
 private:
-    bool m_auth = false;
-
     set_log_address;
 };
 
@@ -64,6 +58,7 @@ public:
     node_server &set_auth_key(const std::string &key)
     {
         m_auth = auth_context<auth_type>(key);
+        logi("set auth key to: ", key);
         return *this;
     }
 
@@ -73,21 +68,29 @@ public:
         on_auth([this](auto c, auto msg) {
             logi("on_auth invoked, authenticating against: ", msg.get_string());
 
-            auto json = msg.get_json();
-            json["data"] = m_auth.authenticate(json["key"]);
+            json json;
+            try {
+                json = msg.get_json();
+                json["data"] = c->authenticate(json["key"]);
+            } catch (std::exception &e) {
+                json["data"] = false;
+            }
 
             auto json_str = json.dump();
             ns::data data(serialize_header(msg.type(), action_type::response,
                                            json_str.size()),
                           json_str);
             c->send(data);
+
+            if (!json["data"])
+                c->close();
         })
             .on_provide([this](auto c, auto msg) {
                 if (!c->authenticated()) {
                     loge("client not authenticated during on_subscribe");
                     c->close();
                 } else {
-                    // provide method
+                    logd("received provide: ", msg.get_string());
                 }
             })
             .on_subscribe([this](auto c, auto msg) {
@@ -95,7 +98,7 @@ public:
                     loge("client not authenticated during on_subscribe");
                     c->close();
                 } else {
-                    // subscribe to event
+                    logd("received subscribe: ", msg.get_string());
                 }
             })
             .on_task([this](auto c, auto msg) {
@@ -103,13 +106,14 @@ public:
                     loge("client not authenticated during on_task");
                     c->close();
                 } else {
-                    // respond to task response
+                    logd("received task: ", msg.get_string());
                 }
             });
 
         // Bind socket i/o callbacks
         on_accept([this](auto client) {
             m_nodes.emplace(client);
+            client->set_auth_key(m_auth.key());
             client->run();
 
             logi("node connected to the swarm");
@@ -134,8 +138,8 @@ public:
                 loge("node removed from the swarm due to: ", ec.message());
             })
             .on_server_error([this](auto server, const auto &ec) {
-                loge("node_server had an error: ", ec.message());
-                loge("closing all node_server connections");
+                loge("node_server had an error: ", ec.message(),
+                     ", closing all connections and discontinuing");
                 // Close all node connections
                 for (auto &node : m_nodes)
                     node->close();
@@ -152,7 +156,6 @@ protected:
 private:
     std::set<std::shared_ptr<node_connection>> m_nodes;
     auth_context<auth_type> m_auth;
-
     set_log_address;
 }; // namespace host
 

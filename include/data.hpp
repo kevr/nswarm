@@ -100,7 +100,6 @@ public:
 
     void read_header(std::istream &is)
     {
-        trace();
         uint64_t header = 0;
         is.read(reinterpret_cast<char *>(&header), sizeof(uint64_t));
         *this = data(header);
@@ -110,7 +109,6 @@ public:
 
     void read_data(std::istream &is)
     {
-        trace();
         std::string value(m_size, '\0');
         is.read(&value[0], m_size);
         m_data = std::move(value);

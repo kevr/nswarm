@@ -47,36 +47,32 @@ TEST_F(node_server_test, server_listens)
         .run("localhost", "6666");
 }
 
-TEST_F(node_server_test, server_authenticates)
+TEST_F(node_server_test, server_denies_auth)
 {
     trace();
 
-    auto client = ns::make_tcp_client(m_server->get_io_service());
+    auto client = ns::make_tcp_client();
     client
-        ->on_connect([](auto c) {
+        ->on_connect([this](auto c) {
+            EXPECT_EQ(m_server->count(), 1);
             logi("connected to ", c->remote_host(), ":", c->remote_port());
             uint64_t header = ns::serialize_header(ns::data_type::auth,
                                                    ns::action_type::request, 0);
             ns::data x(header);
             c->send(x);
         })
-        .on_close([](auto c) { logi("closed"); })
-        .on_error([](auto c, const auto &e) { loge("error: ", e.message()); })
+        .on_close([this](auto c) { logi("closed"); })
+        .on_error(
+            [this](auto c, const auto &e) { loge("error: ", e.message()); })
         .run("localhost", "6666");
 
     // Wait until client is connected.
     // We need a better wait to wait until a client is added
     // on the server side.
-    ns::wait_until([&] { return client->connected(); });
-    EXPECT_EQ(m_server->count(), 1);
-    client->close();
-
-    ns::wait_until([&] { return !client->connected(); });
-    m_server->stop();
-    EXPECT_EQ(m_server->count(), 0);
+    ns::wait_until([&] { return m_server->count() == 0; });
 }
 
-TEST_F(node_server_test, server_denies_unauthenticated)
+TEST_F(node_server_test, server_approves_auth)
 {
     trace();
 }

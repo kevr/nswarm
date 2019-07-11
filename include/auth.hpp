@@ -107,6 +107,11 @@ public:
         return m_authed.load();
     }
 
+    const std::string &key() const
+    {
+        return m_key;
+    }
+
 private:
     std::string m_key;
     std::atomic<bool> m_authed = false;

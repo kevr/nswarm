@@ -1,5 +1,6 @@
 #include "host/node_server.hpp"
 #include "node/upstream.hpp"
+#include "task.hpp"
 #include "util.hpp"
 #include <gtest/gtest.h>
 
@@ -35,4 +36,29 @@ TEST_F(node_upstream_test, auth_works)
     });
     upstream->run("localhost", "6666");
     ns::wait_until([&] { return upstream->authenticated(); });
+}
+
+TEST_F(node_upstream_test, task_works)
+{
+    // First, authenticate on a client. Then send a task.
+    using namespace ns::tasks;
+
+    ns::data task_msg;
+    {
+        auto task = tasks::task<tasks::emit>("taskUUID");
+        auto task_str = task.serialize(json::parse("{\"event\":\"test\"}"));
+        task_msg = ns::data(
+            serialize_header(ns::data_type::task, task.type(), task_str.size()),
+            task_str);
+    }
+
+    auto upstream = std::make_shared<node::upstream>(m_server.get_io_service());
+    upstream->on_connect([this](auto client) {
+        logi("sending auth key abcd");
+        client->auth("abcd");
+    });
+    upstream->run("localhost", "6666");
+    ns::wait_until([&] { return upstream->authenticated(); });
+    upstream->send(task_msg);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 }

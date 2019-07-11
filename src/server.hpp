@@ -171,7 +171,7 @@ public:
 
     const std::size_t count() const
     {
-        return m_connections;
+        return m_connections.load();
     }
 
 protected:
@@ -214,7 +214,7 @@ private:
         if (!ec) {
             logd("client accepted");
 
-            ++m_connections; // increment connection count
+            m_connections.exchange(m_connections.load() + 1);
 
             if (this->has_connect())
                 client->on_connect(std::bind(
@@ -228,13 +228,12 @@ private:
 
             if (this->has_close())
                 client->on_close([this](auto c) {
-                    --m_connections; // remove connection from count
+                    m_connections.exchange(m_connections.load() - 1);
                     this->call_close(c);
                 });
 
             if (this->has_error())
                 client->on_error([this](auto c, const auto &ec) {
-                    --m_connections; // remove connection from count
                     this->call_error(c, ec);
                 });
 
@@ -265,7 +264,7 @@ private:
 
     // Start connection count at 0. on_close/on_error we will
     // decrement this count.
-    std::size_t m_connections = 0;
+    std::atomic<std::size_t> m_connections = 0;
 
     std::mutex m_mutex;
     bool m_running = false;
