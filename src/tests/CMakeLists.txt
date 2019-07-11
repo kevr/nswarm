@@ -1,24 +1,14 @@
 
-add_executable(
-    logging_test logging_test.cpp
-)
+add_executable(logging_test logging_test.cpp)
+target_link_libraries(logging_test gtest_main)
 
+add_executable(sensor_test sensor_test.cpp)
+target_link_libraries(sensor_test gtest_main)
 
-target_link_libraries(
-    logging_test gtest_main
-)
+add_executable(dispatcher_test dispatcher_test.cpp)
+target_link_libraries(dispatcher_test gtest_main)
 
-add_executable(
-    sensor_test sensor_test.cpp
-)
-
-target_link_libraries(
-    sensor_test gtest_main
-)
-add_executable(
-    program_options_test program_options_test.cpp
-)
-
+add_executable(program_options_test program_options_test.cpp)
 target_link_libraries(program_options_test gtest_main)
 
 add_executable(client_test client_test.cpp)
