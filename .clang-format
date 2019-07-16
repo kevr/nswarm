@@ -8,3 +8,4 @@ IndentCaseLabels: false
 AccessModifierOffset: -4
 AllowShortFunctionsOnASingleLine: None
 AlwaysBreakTemplateDeclarations: Yes
+AllowShortLambdasOnASingleLine: None

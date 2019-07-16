@@ -40,8 +40,9 @@ public:
         js["key"] = key;
 
         auto json_str = js.dump();
-        auto header = serialize_header(data_type::auth, action_type::request,
-                                       json_str.size());
+        auto header =
+            serialize_header(data_type::auth::value,
+                             action_type::request::value, json_str.size());
 
         auto data = ns::data(header, json_str);
         send(data);
@@ -54,8 +55,9 @@ public:
         js["method"] = method;
 
         auto json_str = js.dump();
-        auto header = serialize_header(data_type::provide, action_type::request,
-                                       json_str.size());
+        auto header =
+            serialize_header(data_type::provide::value,
+                             action_type::request::value, json_str.size());
 
         auto data = ns::data(header, json_str);
         send(data);
@@ -67,8 +69,9 @@ public:
         js["event"] = event;
 
         auto json_str = js.dump();
-        auto header = serialize_header(data_type::subscribe,
-                                       action_type::request, json_str.size());
+        auto header =
+            serialize_header(data_type::subscribe::value,
+                             action_type::request::value, json_str.size());
 
         auto data = ns::data(header, json_str);
         send(data);
@@ -86,7 +89,7 @@ public:
     // respond("1234", "hello!");
     //
     template <typename T>
-    void respond(const std::string &task_id, task_type task_t,
+    void respond(const std::string &task_id, value::task_value task_t,
                  const T &response)
     {
         json js;
@@ -95,8 +98,8 @@ public:
 
         auto json_str = js.dump();
         auto header = serialize_header(
-            data_type::task, make_flags(task_t, action_type::response),
-            json_str.size());
+            data_type::task::value,
+            make_flags(task_t, action_type::response::value), json_str.size());
 
         auto data = ns::data(header, json_str);
         send(data);

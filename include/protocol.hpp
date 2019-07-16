@@ -41,7 +41,7 @@ public:
     protocol &on_auth(async_auth_function<ConnectionT, DataT> auth_f)
     {
         m_auth_f = auth_f;
-        call_table[data_type::auth] = m_auth_f;
+        call_table[data_type::auth::value] = m_auth_f;
         return *this;
     }
 
@@ -59,7 +59,7 @@ public:
     protocol &on_provide(async_provide_function<ConnectionT, DataT> provide_f)
     {
         m_provide_f = provide_f;
-        call_table[data_type::provide] = m_provide_f;
+        call_table[data_type::provide::value] = m_provide_f;
         return *this;
     }
 
@@ -77,7 +77,7 @@ public:
     protocol &on_subscribe(async_protocol_function subscribe_f)
     {
         m_subscribe_f = subscribe_f;
-        call_table[data_type::subscribe] = m_subscribe_f;
+        call_table[data_type::subscribe::value] = m_subscribe_f;
         return *this;
     }
 
@@ -95,7 +95,7 @@ public:
     protocol &on_task(async_protocol_function task_f)
     {
         m_task_f = task_f;
-        call_table[data_type::task] = m_task_f;
+        call_table[data_type::task::value] = m_task_f;
         return *this;
     }
 
@@ -111,7 +111,7 @@ public:
     }
 
     template <typename... Args>
-    void call(data_type type, Args &&... args)
+    void call(value::data_value type, Args &&... args)
     {
         call_table.at(type)(std::forward<Args>(args)...);
     }
@@ -122,7 +122,7 @@ private:
     async_protocol_function m_subscribe_f;
     async_protocol_function m_task_f;
 
-    std::map<data_type, async_protocol_function> call_table;
+    std::map<value::data_value, async_protocol_function> call_table;
 
     set_log_address;
 };

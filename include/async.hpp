@@ -378,8 +378,8 @@ private:
             logd("header received: ",
                  std::bitset<sizeof(uint64_t) * 8>(x.header()));
 
-            auto type = ns::data_type_string(x.type());
-            auto direction = ns::action_type_string(x.direction());
+            auto type = ns::data_value_string(x.type());
+            auto direction = ns::action_value_string(x.direction());
             logd("deserialized header: type = ", type,
                  ", params = ", x.params(), ", direction = ", direction,
                  ", size = ", x.size());

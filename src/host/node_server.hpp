@@ -77,7 +77,8 @@ public:
             }
 
             auto json_str = json.dump();
-            ns::data data(serialize_header(msg.type(), action_type::response,
+            ns::data data(serialize_header(msg.type(),
+                                           action_type::response::value,
                                            json_str.size()),
                           json_str);
             c->send(data);
@@ -123,7 +124,7 @@ public:
                 try {
                     this->call(msg.type(), client, msg);
                 } catch (std::exception &e) {
-                    auto type = ns::data_type_string(msg.type());
+                    auto type = ns::data_value_string(msg.type());
                     loge(
                         "exception thrown while calling protocol method type [",
                         type, "]: ", e.what());

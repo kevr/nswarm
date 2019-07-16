@@ -27,12 +27,14 @@ protected:
                      client->remote_port());
             })
             .on_read([](auto client, auto data) {
-                EXPECT_EQ(data.type(), ns::data_type::auth);
+                EXPECT_EQ(data.type(), ns::data_type::auth::value);
                 EXPECT_EQ(data.size(), data.get_string().size());
                 logi("read data type: ", data.type());
                 client->close();
             })
-            .on_close([](auto client) { logi("connection closed"); })
+            .on_close([](auto client) {
+                logi("connection closed");
+            })
             .on_error([](auto client, const auto &ec) {
                 loge("error: ", ec.message());
             })
@@ -64,9 +66,14 @@ TEST_F(server_test, server_accepts_client)
             EXPECT_EQ(m_server->count(), 1);
             c->close();
         })
-        .on_read([](auto client, auto data) { logi("read data"); })
-        .on_close([](auto c) { logi("client closed"); })
-        .on_error([](auto c, const auto &e) {})
+        .on_read([](auto client, auto data) {
+            logi("read data");
+        })
+        .on_close([](auto c) {
+            logi("client closed");
+        })
+        .on_error([](auto c, const auto &e) {
+        })
         .run("localhost", "6666");
 
     EXPECT_EQ(m_server->count(), 0);
@@ -83,12 +90,18 @@ TEST_F(server_test, server_serializes_properly)
         ->on_connect([](auto c) {
             logi("client connected to ", c->remote_host(), ":",
                  c->remote_port());
-            ns::data x(serialize_header(ns::data_type::auth,
-                                        ns::action_type::request, 0));
+            ns::data x(ns::serialize_header(ns::data_type::auth::value,
+                                            ns::action_type::request::value,
+                                            0));
             c->send(x);
         })
-        .on_read([](auto client, auto data) { logi("read data"); })
-        .on_close([](auto c) { logi("client closed"); })
-        .on_error([](auto c, const auto &e) {})
+        .on_read([](auto client, auto data) {
+            logi("read data");
+        })
+        .on_close([](auto c) {
+            logi("client closed");
+        })
+        .on_error([](auto c, const auto &e) {
+        })
         .run("localhost", "6666");
 }

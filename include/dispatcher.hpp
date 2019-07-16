@@ -34,10 +34,32 @@ using async_task_function = std::function<void(std::shared_ptr<T>, data)>;
 template <typename T>
 class task_dispatcher
 {
+public: // class type aliases
+    using task_function = async_task_function<T>;
+    using tuple = std::tuple<std::string, task_function>;
+
+private: // private members
+    std::unordered_map<std::string, task_function>
+        m_tasks; // Standard task flow
+
+    std::mutex m_mutex;
+
 public:
-    void push(const std::string &task_id, async_task_function<T> fn)
+    task_dispatcher() = default;
+
+    task_dispatcher(task_dispatcher &&dp)
+        : m_tasks(std::move(dp.m_tasks))
     {
-        std::lock_guard<std::mutex> g(lock());
+    }
+
+    void operator=(task_dispatcher &&dp)
+    {
+        m_tasks = std::move(dp.m_tasks);
+    }
+
+    void push(const std::string &task_id, task_function fn)
+    {
+        std::lock_guard<std::mutex> g(m_mutex);
         if (unsafe_exists(task_id))
             throw std::out_of_range("key already exists");
         m_tasks.emplace(task_id, fn);
@@ -46,10 +68,9 @@ public:
     // Thread-safe combination of exists/pop. If the item
     // exists, it will pop it out and return it here while
     // under a lock.
-    std::optional<std::tuple<std::string, async_task_function<T>>>
-    pop(const std::string &task_id)
+    std::optional<tuple> pop(const std::string &task_id)
     {
-        std::lock_guard<std::mutex> g(lock());
+        std::lock_guard<std::mutex> g(m_mutex);
         if (!unsafe_exists(task_id))
             return std::nullopt;
         return pop_tuple(task_id);
@@ -57,43 +78,35 @@ public:
 
     bool exists(const std::string &task_id) const
     {
-        std::lock_guard<std::mutex> g(lock());
+        std::lock_guard<std::mutex> g(m_mutex);
         return unsafe_exists(task_id);
     }
 
 private:
-    std::lock_guard<std::mutex> lock()
-    {
-        return std::lock_guard<std::mutex>(m_mutex);
-    }
-
     bool unsafe_exists(const std::string &task_id)
     {
         return m_tasks.find(task_id) != m_tasks.end();
     }
 
-    std::tuple<std::string, async_task_function<T>>
-    pop_tuple(const std::string &task_id)
+    tuple pop_tuple(const std::string &task_id)
     {
         auto task = m_tasks.at(task_id);
         m_tasks.erase(m_tasks.find(task_id));
         return std::make_tuple(task_id, task);
     }
 
-private:
-    std::unordered_map<std::string, async_task_function<T>> m_tasks;
-    std::mutex m_mutex;
-};
-
-template <typename T>
-std::string make_task_id(const task_dispatcher<T> &dispatcher)
-{
-    std::string task_id; // set this to a random task_id
-    while (dispatcher.safe_exists(task_id)) {
-        // set new task_id
+protected:
+    // Friends
+    template <typename U>
+    friend std::string make_task_id(const task_dispatcher<U> &dispatcher)
+    {
+        std::string task_id; // set this to a random task_id
+        while (dispatcher.safe_exists(task_id)) {
+            // set new task_id
+        }
+        return task_id;
     }
-    return task_id;
-}
+};
 
 }; // namespace ns
 
