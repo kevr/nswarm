@@ -1,11 +1,11 @@
 #ifndef NS_PROTOCOL_HPP
 #define NS_PROTOCOL_HPP
 
-#include <nswarm/data.hpp>
 #include <boost/asio.hpp>
 #include <functional>
 #include <map>
 #include <memory>
+#include <nswarm/data.hpp>
 
 namespace ns
 {
@@ -17,7 +17,7 @@ template <typename T, typename D>
 using async_auth_function = async_protocol_function<T, D>;
 
 template <typename T, typename D>
-using async_provide_function = async_protocol_function<T, D>;
+using async_implement_function = async_protocol_function<T, D>;
 
 template <typename T, typename D>
 using async_subscribe_function = async_protocol_function<T, D>;
@@ -56,22 +56,23 @@ public:
         return m_auth_f != nullptr;
     }
 
-    protocol &on_provide(async_provide_function<ConnectionT, DataT> provide_f)
+    protocol &
+    on_implement(async_implement_function<ConnectionT, DataT> implement_f)
     {
-        m_provide_f = provide_f;
-        call_table[data_type::provide::value] = m_provide_f;
+        m_implement_f = implement_f;
+        call_table[data_type::implement::value] = m_implement_f;
         return *this;
     }
 
     template <typename... Args>
-    void call_provide(Args &&... args)
+    void call_implement(Args &&... args)
     {
-        return m_provide_f(std::forward<Args>(args)...);
+        return m_implement_f(std::forward<Args>(args)...);
     }
 
-    bool has_provide() const
+    bool has_implement() const
     {
-        return m_provide_f != nullptr;
+        return m_implement_f != nullptr;
     }
 
     protocol &on_subscribe(async_protocol_function subscribe_f)
@@ -118,7 +119,7 @@ public:
 
 private:
     async_protocol_function m_auth_f;
-    async_protocol_function m_provide_f;
+    async_protocol_function m_implement_f;
     async_protocol_function m_subscribe_f;
     async_protocol_function m_task_f;
 

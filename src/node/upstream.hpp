@@ -48,15 +48,15 @@ public:
         send(data);
     }
 
-    // construct provide message
-    void provide(const std::string &method)
+    // construct implement message
+    void implement(const std::string &method)
     {
         json js;
         js["method"] = method;
 
         auto json_str = js.dump();
         auto header =
-            serialize_header(data_type::provide::value,
+            serialize_header(data_type::implement::value,
                              action_type::request::value, json_str.size());
 
         auto data = ns::data(header, json_str);
@@ -125,8 +125,8 @@ private:
                 this->close();
             }
         })
-            .on_provide([this](auto client, auto message) {
-                logi("on_provide response received");
+            .on_implement([this](auto client, auto message) {
+                logi("on_implement response received");
             })
             .on_subscribe([this](auto client, auto message) {
                 logi("on_subscribe response received");
@@ -134,10 +134,10 @@ private:
             .on_task([this](auto client, auto message) {
                 logi("on_task request received");
                 // IMPORTANT: propagate request to service
-                // Propagate request onto a service that provides
+                // Propagate request onto a service that implements
                 // this event and/or method.
                 //
-                // In the service class, we'll provide a way to bind
+                // In the service class, we'll implement a way to bind
                 // handlers to methods or events. method handlers
                 // will return a json serializable type, which
                 // will fill the "data" key of the response.
@@ -147,7 +147,7 @@ private:
                 //      return args;
                 //   };
                 //
-                // service.provide("f", f);
+                // service.implement("f", f);
                 //
                 // ...
                 // // task for method "f" comes in

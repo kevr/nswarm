@@ -9,9 +9,9 @@
 #ifndef NS_HOST_NODE_SERVER
 #define NS_HOST_NODE_SERVER
 
+#include "server.hpp"
 #include <nswarm/auth.hpp>
 #include <nswarm/protocol.hpp>
-#include "server.hpp"
 #include <set>
 #include <string>
 
@@ -89,12 +89,12 @@ public:
             if (!authenticated)
                 c->close();
         })
-            .on_provide([this](auto c, auto msg) {
+            .on_implement([this](auto c, auto msg) {
                 if (!c->authenticated()) {
                     loge("client not authenticated during on_subscribe");
                     c->close();
                 } else {
-                    logd("received provide: ", msg.get_string());
+                    logd("received implement: ", msg.get_string());
                 }
             })
             .on_subscribe([this](auto c, auto msg) {

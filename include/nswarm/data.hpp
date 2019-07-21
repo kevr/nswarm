@@ -1,12 +1,12 @@
 #ifndef NS_DATA_HPP
 #define NS_DATA_HPP
 
-#include <nswarm/json.hpp>
-#include <nswarm/logging.hpp>
-#include <nswarm/variant.hpp>
 #include <bitset>
 #include <cassert>
 #include <cstdint>
+#include <nswarm/json.hpp>
+#include <nswarm/logging.hpp>
+#include <nswarm/variant.hpp>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -21,7 +21,7 @@ namespace value
 {
 enum data_value : uint16_t {
     auth = 1,  // Authentication: node -> cluster, api -> cluster
-    provide,   // Provide a method: node -> host
+    implement, // Provide a method: node -> host
     subscribe, // Subscribe to an event: node -> host
     task,      // Method or event task: api -> host -> node -> host -> api
 };
@@ -33,8 +33,8 @@ namespace data_type
 struct auth {
     static constexpr value::data_value value = value::data_value::auth;
 };
-struct provide {
-    static constexpr value::data_value value = value::data_value::provide;
+struct implement {
+    static constexpr value::data_value value = value::data_value::implement;
 };
 struct subscribe {
     static constexpr value::data_value value = value::data_value::subscribe;
@@ -43,7 +43,7 @@ struct task {
     static constexpr value::data_value value = value::data_value::task;
 };
 
-using variant = std::variant<auth, provide, subscribe, task>;
+using variant = std::variant<auth, implement, subscribe, task>;
 
 // Required conversion function from actual data_type numeric value to variant
 inline variant deduce(const value::data_value t)
@@ -51,8 +51,8 @@ inline variant deduce(const value::data_value t)
     switch (t) {
     case value::data_value::auth:
         return auth();
-    case value::data_value::provide:
-        return provide();
+    case value::data_value::implement:
+        return implement();
     case value::data_value::subscribe:
         return subscribe();
     case value::data_value::task:
@@ -133,7 +133,7 @@ inline uint64_t serialize_header(uint16_t a, uint16_t ba, uint16_t bb,
 
 // T: Derivative class
 // T is used to represent a higher level of data, for example, authentication.
-// T should provide the following public functions for initialization:
+// T should implement the following public functions for initialization:
 //     void prepare()
 //
 template <typename T>
@@ -357,7 +357,7 @@ inline std::string data_value_string(const value::data_value type)
 {
     static const std::map<value::data_value, std::string> types{
         {value::data_value::auth, "data_value::auth"},
-        {value::data_value::provide, "data_value::provide"},
+        {value::data_value::implement, "data_value::implement"},
         {value::data_value::subscribe, "data_value::subscribe"},
         {value::data_value::task, "data_value::task"},
     };
