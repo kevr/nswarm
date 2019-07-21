@@ -1,8 +1,8 @@
 #include "host/node_server.hpp"
 #include "node/upstream.hpp"
+#include <gtest/gtest.h>
 #include <nswarm/task.hpp>
 #include <nswarm/util.hpp>
-#include <gtest/gtest.h>
 
 using namespace ns;
 
@@ -79,6 +79,27 @@ TEST_F(node_upstream_test, task_response)
         [](auto &&) {
             logi("invalid task deduced");
         });
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+}
+
+TEST_F(node_upstream_test, implements)
+{
+    // First, authenticate on a client. Then send a task.
+
+    auto upstream = std::make_shared<node::upstream>(m_server.get_io_service());
+    upstream->on_connect([this](auto client) {
+        logi("sending auth key abcd");
+        client->auth("abcd");
+    });
+    upstream->run("localhost", "6666");
+    // authenticated() is a higher level, thread safe function
+    ns::wait_until([&] {
+        return upstream->authenticated();
+    });
+
+    logi("implementing method1");
+    upstream->implement("method1");
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
 }

@@ -22,29 +22,21 @@ public:
     // This can be used by the requester to make a fresh
     // subscribe data object.
     subscribe(const std::string &event)
-        : m_event(event)
+        : data_object_t(
+              serialize_header(data_type::subscribe::value, 0, A::value, 0))
     {
         this->m_json["event"] = event;
+        this->m_data = this->m_json.dump();
+        this->m_event = event;
+        this->set_size(this->get_string().size());
     }
 
     // Provide all possible combinations of subscribe<A>
-    subscribe(const subscribe &other)
-        : data_object_t(other)
-    {
-        prepare();
-    }
-
     template <typename U>
     subscribe(const subscribe<U> &other)
         : data_object_t(other)
     {
         prepare();
-    }
-
-    subscribe &operator=(const subscribe &other)
-    {
-        data_object_t::operator=(other);
-        return *this;
     }
 
     template <typename U>
@@ -54,23 +46,11 @@ public:
         return *this;
     }
 
-    subscribe(subscribe &&other)
-        : data_object_t(std::move(other))
-    {
-        prepare();
-    }
-
     template <typename U>
     subscribe(subscribe<U> &&other)
         : data_object_t(std::move(other))
     {
         prepare();
-    }
-
-    subscribe &operator=(subscribe &&other)
-    {
-        data_object_t::operator=(std::move(other));
-        return *this;
     }
 
     template <typename U>

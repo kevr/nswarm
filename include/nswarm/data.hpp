@@ -95,9 +95,10 @@ inline variant deduce(const value::action_value t)
 
 }; // namespace action_type
 
-inline uint16_t make_flags(uint16_t params, uint16_t action) noexcept
+inline uint16_t make_flags(uint16_t params, uint16_t action,
+                           bool error = false) noexcept
 {
-    return (params << 1) | (action & 1);
+    return (params << 2) | (error ? (1 << 1) : 0) | (action & 1);
 }
 
 inline std::tuple<uint16_t, uint16_t, uint32_t>
@@ -125,10 +126,10 @@ inline uint64_t serialize_header(uint16_t a, uint16_t b, uint32_t c) noexcept
 
 // [16 bits message_type][15 bits params][1 bit direction][32 bits data_size]
 inline uint64_t serialize_header(uint16_t a, uint16_t ba, uint16_t bb,
-                                 uint32_t c) noexcept
+                                 uint32_t c, bool error = false) noexcept
 {
     logd("serialize_header(", a, ", ", ba, ", ", bb, ", ", c, ")");
-    return serialize_header(a, make_flags(ba, bb), c);
+    return serialize_header(a, make_flags(ba, bb, error), c);
 }
 
 // T: Derivative class
@@ -263,14 +264,20 @@ public:
     const uint16_t params() const noexcept
     {
         // the left-most 15 bits
-        return m_flags >> 1;
+        return m_flags >> 2;
     }
 
-    const value::action_value direction() const noexcept
+    // error field
+    const bool error() const noexcept
     {
-        // the right-most bit
-        const uint16_t DIRECTION_MASK = 1;
-        return static_cast<value::action_value>(m_flags & DIRECTION_MASK);
+        // Shift over the error bit and mask it
+        return (m_flags >> 1) & 1;
+    }
+
+    const value::action_value action() const noexcept
+    {
+        // Mask the action bit
+        return static_cast<value::action_value>(m_flags & 1);
     }
 
     const uint16_t flags() const noexcept

@@ -85,7 +85,7 @@ public:
 
             json["data"] = authenticated;
 
-            c->send(ns::auth_response<auth_type::key>(json.dump()));
+            c->send(ns::auth_response<auth_type::key>(json));
             if (!authenticated)
                 c->close();
         })

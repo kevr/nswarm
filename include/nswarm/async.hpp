@@ -6,9 +6,6 @@
 #ifndef NS_ASYNC_HPP
 #define NS_ASYNC_HPP
 
-#include <nswarm/data.hpp>
-#include <nswarm/logging.hpp>
-#include <nswarm/types.hpp>
 #include <algorithm>
 #include <bitset>
 #include <boost/asio.hpp>
@@ -16,6 +13,9 @@
 #include <functional>
 #include <iomanip>
 #include <memory>
+#include <nswarm/data.hpp>
+#include <nswarm/logging.hpp>
+#include <nswarm/types.hpp>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -380,9 +380,9 @@ private:
                  std::bitset<sizeof(uint64_t) * 8>(x.header()));
 
             auto type = ns::data_value_string(x.type());
-            auto direction = ns::action_value_string(x.direction());
+            auto action = ns::action_value_string(x.action());
             logd("deserialized header: type = ", type,
-                 ", params = ", x.params(), ", direction = ", direction,
+                 ", params = ", x.params(), ", action = ", action,
                  ", size = ", x.size());
 
             if (x.size() > 0) {

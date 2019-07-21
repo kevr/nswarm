@@ -9,9 +9,9 @@
 #ifndef NS_AUTH_HPP
 #define NS_AUTH_HPP
 
+#include <atomic>
 #include <nswarm/data.hpp>
 #include <nswarm/logging.hpp>
-#include <atomic>
 #include <string>
 
 namespace ns
@@ -166,16 +166,13 @@ public:
     // Derive base constructors
     using data_object_t::data_object;
 
-    // Data constructors.
-    // With these two, we already have deduced our header values
-    // and so we abstract away putting one together.
-    auth(const std::string &msg)
-        : data_object_t(serialize_header(data_type::auth::value, T::value,
-                                         A::value, msg.size()),
-                        msg)
+    auth(const std::string &key)
+        : data_object_t(
+              serialize_header(data_type::auth::value, T::value, A::value, 0))
     {
-        logd("auth(string) constructor header: ",
-             std::bitset<64>(this->header()), ", data: ", this->get_string());
+        this->m_json["key"] = key;
+        this->m_data = this->m_json.dump();
+        this->set_size(this->m_data.size());
     }
 
     auth(const json &js)
@@ -183,8 +180,8 @@ public:
               serialize_header(data_type::auth::value, T::value, A::value, 0),
               js)
     {
-        set_size(this->get_string().size());
-
+        this->set_size(this->get_string().size());
+        prepare();
         logd("auth(json) constructor header: ", std::bitset<64>(this->header()),
              ", data: ", this->get_string());
     }
@@ -218,6 +215,11 @@ public:
     const std::string &key() const
     {
         return m_key;
+    }
+
+    value::auth_value params() const
+    {
+        return static_cast<value::auth_value>(data_object_t::params());
     }
 
     // We cannot call this in the base class constructor.

@@ -12,7 +12,9 @@
 #include <nswarm/auth.hpp>
 #include <nswarm/client.hpp>
 #include <nswarm/data.hpp>
+#include <nswarm/implement.hpp>
 #include <nswarm/protocol.hpp>
+#include <nswarm/subscribe.hpp>
 #include <nswarm/task.hpp>
 
 namespace ns
@@ -36,45 +38,18 @@ public:
 
     void auth(const std::string &key)
     {
-        json js;
-        js["key"] = key;
-
-        auto json_str = js.dump();
-        auto header =
-            serialize_header(data_type::auth::value,
-                             action_type::request::value, json_str.size());
-
-        auto data = ns::data(header, json_str);
-        send(data);
+        send(auth_request<auth_type::key>(key));
     }
 
     // construct implement message
     void implement(const std::string &method)
     {
-        json js;
-        js["method"] = method;
-
-        auto json_str = js.dump();
-        auto header =
-            serialize_header(data_type::implement::value,
-                             action_type::request::value, json_str.size());
-
-        auto data = ns::data(header, json_str);
-        send(data);
+        send(implement_request(method));
     }
 
     void subscribe(const std::string &event)
     {
-        json js;
-        js["event"] = event;
-
-        auto json_str = js.dump();
-        auto header =
-            serialize_header(data_type::subscribe::value,
-                             action_type::request::value, json_str.size());
-
-        auto data = ns::data(header, json_str);
-        send(data);
+        send(subscribe_request(event));
     }
 
     //

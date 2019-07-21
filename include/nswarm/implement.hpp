@@ -22,29 +22,21 @@ public:
     // This can be used by the requester to make a fresh
     // implement data object.
     implement(const std::string &method)
-        : m_method(method)
+        : data_object_t(
+              serialize_header(data_type::implement::value, 0, A::value, 0))
     {
         this->m_json["method"] = method;
+        this->m_data = this->m_json.dump();
+        this->m_method = method;
+        this->set_size(this->get_string().size());
     }
 
     // Provide all possible combinations of implement<A>
-    implement(const implement &other)
-        : data_object_t(other)
-    {
-        prepare();
-    }
-
     template <typename U>
     implement(const implement<U> &other)
         : data_object_t(other)
     {
         prepare();
-    }
-
-    implement &operator=(const implement &other)
-    {
-        data_object_t::operator=(other);
-        return *this;
     }
 
     template <typename U>
@@ -54,23 +46,11 @@ public:
         return *this;
     }
 
-    implement(implement &&other)
-        : data_object_t(std::move(other))
-    {
-        prepare();
-    }
-
     template <typename U>
     implement(implement<U> &&other)
         : data_object_t(std::move(other))
     {
         prepare();
-    }
-
-    implement &operator=(implement &&other)
-    {
-        data_object_t::operator=(std::move(other));
-        return *this;
     }
 
     template <typename U>
