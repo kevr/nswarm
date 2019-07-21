@@ -29,28 +29,24 @@ protected:
     }
 
     host::node_server m_server{6666};
+    util::benchmark bench;
 };
 
 TEST_F(node_upstream_test, auth_works)
 {
-    std::chrono::high_resolution_clock hrc;
-    std::chrono::time_point<std::chrono::high_resolution_clock> tp1, tp2;
-
     auto upstream = std::make_shared<node::upstream>(m_server.get_io_service());
     upstream->on_connect([&](auto client) {
         logi("sending auth key abcd");
-        tp1 = hrc.now();
+        bench.start();
         client->auth("abcd");
     });
+
     upstream->run("localhost", "6666");
     ns::wait_until([&] {
         return upstream->authenticated();
     });
-    tp2 = hrc.now();
 
-    auto delta =
-        std::chrono::duration_cast<std::chrono::milliseconds>(tp2 - tp1)
-            .count();
+    auto delta = bench.stop();
     logi("Authentication took: ", delta, "ms");
 }
 
