@@ -9,8 +9,8 @@
 #ifndef NS_SENSOR_HPP
 #define NS_SENSOR_HPP
 
-#include "logging.hpp"
-#include "util.hpp"
+#include <nswarm/logging.hpp>
+#include <nswarm/util.hpp>
 #include <atomic>
 #include <mutex>
 #include <string>

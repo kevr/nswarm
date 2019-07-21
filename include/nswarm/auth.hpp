@@ -9,8 +9,8 @@
 #ifndef NS_AUTH_HPP
 #define NS_AUTH_HPP
 
-#include "data.hpp"
-#include "logging.hpp"
+#include <nswarm/data.hpp>
+#include <nswarm/logging.hpp>
 #include <atomic>
 #include <string>
 

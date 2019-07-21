@@ -6,9 +6,9 @@
 #ifndef NS_ASYNC_HPP
 #define NS_ASYNC_HPP
 
-#include "data.hpp"
-#include "logging.hpp"
-#include "types.hpp"
+#include <nswarm/data.hpp>
+#include <nswarm/logging.hpp>
+#include <nswarm/types.hpp>
 #include <algorithm>
 #include <bitset>
 #include <boost/asio.hpp>

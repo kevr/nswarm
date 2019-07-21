@@ -8,7 +8,7 @@
  * All Rights Reserved
  **/
 #include "config.hpp"
-#include "logging.hpp"
+#include <nswarm/logging.hpp>
 #include <string>
 
 int main(int argc, const char *argv[])

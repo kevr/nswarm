@@ -9,8 +9,8 @@
 #ifndef NS_HOST_NODE_SERVER
 #define NS_HOST_NODE_SERVER
 
-#include "auth.hpp"
-#include "protocol.hpp"
+#include <nswarm/auth.hpp>
+#include <nswarm/protocol.hpp>
 #include "server.hpp"
 #include <set>
 #include <string>

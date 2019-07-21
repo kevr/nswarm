@@ -10,9 +10,9 @@
 #ifndef NS_SERVER_HPP
 #define NS_SERVER_HPP
 
-#include "async.hpp"
-#include "logging.hpp"
-#include "types.hpp"
+#include <nswarm/async.hpp>
+#include <nswarm/logging.hpp>
+#include <nswarm/types.hpp>
 #include <functional>
 #include <memory>
 #include <thread>

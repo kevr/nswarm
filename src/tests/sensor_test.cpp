@@ -7,7 +7,7 @@
  * Copyright (c) 2019 Kevin Morris
  * All Rights Reserved.
  **/
-#include "logging.hpp"
+#include <nswarm/logging.hpp>
 #include "memory.hpp"
 #include <gtest/gtest.h>
 #include <thread>

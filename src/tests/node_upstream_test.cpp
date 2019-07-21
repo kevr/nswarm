@@ -1,7 +1,7 @@
 #include "host/node_server.hpp"
 #include "node/upstream.hpp"
-#include "task.hpp"
-#include "util.hpp"
+#include <nswarm/task.hpp>
+#include <nswarm/util.hpp>
 #include <gtest/gtest.h>
 
 using namespace ns;

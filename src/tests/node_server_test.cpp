@@ -1,6 +1,6 @@
-#include "client.hpp"
+#include <nswarm/client.hpp>
 #include "host/node_server.hpp"
-#include "logging.hpp"
+#include <nswarm/logging.hpp>
 #include "memory.hpp"
 #include <gtest/gtest.h>
 #include <string>

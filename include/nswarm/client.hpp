@@ -10,9 +10,9 @@
 #ifndef NS_CLIENT_HPP
 #define NS_CLIENT_HPP
 
-#include "async.hpp"
-#include "logging.hpp"
-#include "types.hpp"
+#include <nswarm/async.hpp>
+#include <nswarm/logging.hpp>
+#include <nswarm/types.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/bind.hpp>

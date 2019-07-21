@@ -9,11 +9,11 @@
 #ifndef NS_NODE_UPSTREAM_HPP
 #define NS_NODE_UPSTREAM_HPP
 
-#include "auth.hpp"
-#include "client.hpp"
-#include "data.hpp"
-#include "protocol.hpp"
-#include "task.hpp"
+#include <nswarm/auth.hpp>
+#include <nswarm/client.hpp>
+#include <nswarm/data.hpp>
+#include <nswarm/protocol.hpp>
+#include <nswarm/task.hpp>
 
 namespace ns
 {

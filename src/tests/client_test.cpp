@@ -1,5 +1,5 @@
-#include "client.hpp"
-#include "logging.hpp"
+#include <nswarm/client.hpp>
+#include <nswarm/logging.hpp>
 #include <gtest/gtest.h>
 
 TEST(client_test, google_search)

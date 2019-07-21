@@ -9,7 +9,7 @@
 #ifndef NS_MEMORY_HPP
 #define NS_MEMORY_HPP
 
-#include "logging.hpp"
+#include <nswarm/logging.hpp>
 #include "process.hpp"
 #include "sensor.hpp"
 #include <atomic>

@@ -1,5 +1,5 @@
-#include "logging.hpp"
-#include "variant.hpp"
+#include <nswarm/logging.hpp>
+#include <nswarm/variant.hpp>
 #include <gtest/gtest.h>
 
 using ns::match;

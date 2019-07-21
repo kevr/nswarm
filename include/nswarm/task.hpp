@@ -9,8 +9,8 @@
 #ifndef NS_TASK_HPP
 #define NS_TASK_HPP
 
-#include "auth.hpp"
-#include "data.hpp"
+#include <nswarm/auth.hpp>
+#include <nswarm/data.hpp>
 #include <cstdint>
 #include <string>
 

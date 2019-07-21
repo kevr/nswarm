@@ -1,4 +1,4 @@
-#include "client.hpp"
+#include <nswarm/client.hpp>
 #include "server.hpp"
 #include <gtest/gtest.h>
 

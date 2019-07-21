@@ -10,7 +10,7 @@
 #ifndef NS_UTIL_HPP
 #define NS_UTIL_HPP
 
-#include "logging.hpp"
+#include <nswarm/logging.hpp>
 #include <mutex>
 #include <stdexcept>
 #include <thread>

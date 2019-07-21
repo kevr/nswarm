@@ -15,8 +15,8 @@
 #ifndef NS_DISPATCHER_HPP
 #define NS_DISPATCHER_HPP
 
-#include "data.hpp"
-#include "task.hpp"
+#include <nswarm/data.hpp>
+#include <nswarm/task.hpp>
 #include <functional>
 #include <memory>
 #include <mutex>

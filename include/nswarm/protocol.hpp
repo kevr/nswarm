@@ -1,7 +1,7 @@
 #ifndef NS_PROTOCOL_HPP
 #define NS_PROTOCOL_HPP
 
-#include "data.hpp"
+#include <nswarm/data.hpp>
 #include <boost/asio.hpp>
 #include <functional>
 #include <map>

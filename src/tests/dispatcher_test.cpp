@@ -1,4 +1,4 @@
-#include "dispatcher.hpp"
+#include <nswarm/dispatcher.hpp>
 #include <gtest/gtest.h>
 
 TEST(dispatcher_test, dispatcher)

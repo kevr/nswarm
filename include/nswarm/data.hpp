@@ -1,9 +1,9 @@
 #ifndef NS_DATA_HPP
 #define NS_DATA_HPP
 
-#include "json.hpp"
-#include "logging.hpp"
-#include "variant.hpp"
+#include <nswarm/json.hpp>
+#include <nswarm/logging.hpp>
+#include <nswarm/variant.hpp>
 #include <bitset>
 #include <cassert>
 #include <cstdint>

@@ -1,7 +1,7 @@
 #ifndef NS_PROCESS_HPP
 #define NS_PROCESS_HPP
 
-#include "logging.hpp"
+#include <nswarm/logging.hpp>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>

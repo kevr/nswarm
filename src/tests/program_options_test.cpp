@@ -7,8 +7,8 @@
  * All Rights Reserved.
  **/
 #include "config.hpp"
-#include "logging.hpp"
 #include <gtest/gtest.h>
+#include <nswarm/logging.hpp>
 
 TEST(program_options, executable_name)
 {
