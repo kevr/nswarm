@@ -6,7 +6,7 @@
 namespace ns
 {
 
-// A structure that represents a function subscribeation
+// A structure that represents an event subscription
 // by a node application.
 template <typename A>
 class subscribe : public data_object<subscribe<A>>
@@ -18,7 +18,7 @@ class subscribe : public data_object<subscribe<A>>
 public:
     using data_object_t::data_object;
 
-    // Allow construction with just a event name.
+    // Allow construction with just an event name.
     // This can be used by the requester to make a fresh
     // subscribe data object.
     subscribe(const std::string &event)
