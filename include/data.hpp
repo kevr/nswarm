@@ -131,65 +131,109 @@ inline uint64_t serialize_header(uint16_t a, uint16_t ba, uint16_t bb,
     return serialize_header(a, make_flags(ba, bb), c);
 }
 
-class data
+// T: Derivative class
+// T is used to represent a higher level of data, for example, authentication.
+// T should provide the following public functions for initialization:
+//     void prepare()
+//
+template <typename T>
+class basic_data
 {
 public:
-    data() = default;
+    basic_data() = default;
 
-    data(uint64_t header, const json &js) noexcept
-        : data(header, js.dump())
+    basic_data(uint64_t header, const json &js) noexcept
+        : basic_data(header, js.dump())
     {
+        tracevalue();
+        logd("basic_data created with: ", std::bitset<64>(this->header()),
+             ", data: ", this->get_string());
     }
 
-    data(uint64_t header, std::string data_value = std::string()) noexcept
+    basic_data(uint64_t header, std::string data_value = std::string()) noexcept
         : m_data(std::move(data_value))
     {
+        tracevalue();
         m_type = (uint16_t)(header >> 48);
         m_flags = (uint16_t)(header >> 32);
         m_size = (uint32_t)header;
-        logd("data created with {", m_type, ", ", m_flags, ", ", m_size,
-             "}, real data size = ", m_data.size());
+        logd("basic_data created with {", m_type, ", ", m_flags, ", ", m_size,
+             "}, real basic_data size = ", m_data.size());
     }
 
-    data(const data &other) noexcept
+    basic_data(const basic_data &other) noexcept
         : m_type(other.m_type)
         , m_flags(other.m_flags)
         , m_size(other.m_size)
         , m_data(other.m_data)
+        , m_json(other.m_json)
     {
+        tracecopy();
     }
 
-    data &operator=(const data &other) noexcept
+    template <typename U>
+    basic_data(const basic_data<U> &other) noexcept
+        : m_type(other.m_type)
+        , m_flags(other.m_flags)
+        , m_size(other.m_size)
+        , m_data(other.m_data)
+        , m_json(other.m_json)
     {
+        tracecopy();
+    }
+
+    T &operator=(const basic_data &other) noexcept
+    {
+        tracecopy();
         m_type = other.m_type;
         m_flags = other.m_flags;
         m_size = other.m_size;
         m_data = other.m_data;
-        return *this;
+        m_json = other.m_json;
+        auto *ptr = static_cast<T *>(this);
+        ptr->prepare();
+        return *ptr;
     }
 
-    data(data &&other) noexcept
+    basic_data(basic_data &&other) noexcept
         : m_type(other.m_type)
         , m_flags(other.m_flags)
         , m_size(other.m_size)
         , m_data(std::move(other.m_data))
+        , m_json(std::move(other.m_json))
     {
+        tracemove();
     }
 
-    data &operator=(data &&other) noexcept
+    template <typename U>
+    basic_data(basic_data<U> &&other) noexcept
+        : m_type(other.m_type)
+        , m_flags(other.m_flags)
+        , m_size(other.m_size)
+        , m_data(std::move(other.m_data))
+        , m_json(std::move(other.m_json))
     {
+        tracemove();
+    }
+
+    T &operator=(basic_data &&other) noexcept
+    {
+        tracemove();
         m_type = other.m_type;
         m_flags = other.m_flags;
         m_size = other.m_size;
         m_data = std::move(other.m_data);
-        return *this;
+        m_json = std::move(other.m_json);
+        auto *ptr = static_cast<T *>(this);
+        ptr->prepare();
+        return *ptr;
     }
 
     void read_header(std::istream &is)
     {
         uint64_t header = 0;
         is.read(reinterpret_cast<char *>(&header), sizeof(uint64_t));
-        *this = data(header);
+        std::tie(m_type, m_flags, m_size) = deserialize_header(header);
         logd("data updated with header data = { ", m_type, ", ", m_flags, ", ",
              m_size, " }");
     }
@@ -258,7 +302,7 @@ protected:
         m_size = size;
     }
 
-private:
+protected:
     uint16_t m_type = 0;
     uint16_t m_flags = 0;
     uint32_t m_size = 0;
@@ -266,9 +310,48 @@ private:
 
     json m_json;
 
-protected:
-    set_log_address;
+    template <typename U>
+    friend class basic_data;
 };
+
+// L0 data: This L0 data is protocol unaware
+class data : public basic_data<data>
+{
+public:
+    using basic_data::basic_data;
+
+    void prepare()
+    {
+        // Do nothing here; noop
+    }
+
+protected:
+    // data_object<T> shall be a class that can manipulate
+    // moved from objects
+    template <typename T>
+    friend class data_object;
+};
+
+// L1 data: This L1 data is data type aware
+template <typename T>
+class data_object : public basic_data<T>
+{
+public:
+    using basic_data<T>::basic_data;
+};
+
+// L2 data: L2 data shall be derivatives of data_object
+//          L2 objects are protocol aware
+
+// Here, make and prepare a data_object:
+// void DataType::prepare() is required to be implemented.
+template <typename DataType, typename... Args>
+DataType make_data(Args &&... args)
+{
+    auto data = DataType(std::forward<Args>(args)...);
+    data.prepare();
+    return data;
+}
 
 inline std::string data_value_string(const value::data_value type)
 {

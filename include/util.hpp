@@ -46,13 +46,12 @@ void wait_until(Predicate p, int64_t timeout = 60)
     logd("waiting ", timeout, " seconds until predicate is true");
     int64_t timeout_ms = 60 * 1000;
     while (timeout_ms > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         if (p()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             logd("predicate matched");
             return;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        timeout_ms -= 10;
+        timeout_ms -= 1;
     }
     throw std::out_of_range(
         "wait_until timeout reached: " + std::to_string(timeout) + " seconds");

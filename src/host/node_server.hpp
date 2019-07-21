@@ -21,7 +21,7 @@ namespace host
 {
 
 class node_connection : public connection<node_connection>,
-                        public auth_context<auth_type>
+                        public auth_context<authentication::plain>
 {
 public:
     using connection::connection;
@@ -29,7 +29,8 @@ public:
 
     node_connection &set_auth_key(const std::string &key)
     {
-        auth_context<auth_type>::operator=(auth_context<auth_type>(key));
+        auth_context<authentication::plain>::operator=(
+            auth_context<authentication::plain>(key));
         return *this;
     }
 
@@ -57,7 +58,7 @@ public:
 
     node_server &set_auth_key(const std::string &key)
     {
-        m_auth = auth_context<auth_type>(key);
+        m_auth = auth_context<authentication::plain>(key);
         logi("set auth key to: ", key);
         return *this;
     }
@@ -65,25 +66,27 @@ public:
     void init()
     {
         // Bind protocol callbacks
-        on_auth([this](auto c, auto msg) {
+        on_auth([this](auto c, auto msg) -> void {
+            // This is really fucked up. We need to fix this data type mess.
             logi("on_auth invoked, authenticating against: ", msg.get_string());
+            auth_request<auth_type::key> auth;
 
-            json json;
+            bool authenticated = false;
+            ns::json json;
             try {
-                json = msg.get_json();
-                json["data"] = c->authenticate(json["key"]);
+                auth = make_data<auth_request<auth_type::key>>(msg);
+                authenticated = c->authenticate(auth.key());
+                json = ns::json(auth.get_json());
+            } catch (ns::json::exception &e) {
+                loge("json parse error: ", e.what());
             } catch (std::exception &e) {
-                json["data"] = false;
+                loge("error while parsing auth request: ", e.what());
             }
 
-            auto json_str = json.dump();
-            ns::data data(serialize_header(msg.type(),
-                                           action_type::response::value,
-                                           json_str.size()),
-                          json_str);
-            c->send(data);
+            json["data"] = authenticated;
 
-            if (!json["data"])
+            c->send(ns::auth_response<auth_type::key>(json.dump()));
+            if (!authenticated)
                 c->close();
         })
             .on_provide([this](auto c, auto msg) {
@@ -120,15 +123,17 @@ public:
             logi("node connected to the swarm");
         })
             .on_read([this](auto client, auto msg) {
-                // When we read from a node, use m_proto to decide what to do.
-                try {
-                    this->call(msg.type(), client, msg);
-                } catch (std::exception &e) {
-                    auto type = ns::data_value_string(msg.type());
-                    loge(
-                        "exception thrown while calling protocol method type [",
-                        type, "]: ", e.what());
-                }
+                // When we read from a node, use m_proto to decide what to do.i
+                // try {
+                this->call(msg.type(), client, msg);
+                /*
+            } catch (std::exception &e) {
+                auto type = ns::data_value_string(msg.type());
+                loge(
+                    "exception thrown while calling protocol method type [",
+                    type, "]: ", e.what());
+            }
+            */
             })
             .on_close([this](auto client) {
                 m_nodes.erase(m_nodes.find(client));
@@ -156,7 +161,7 @@ protected:
 
 private:
     std::set<std::shared_ptr<node_connection>> m_nodes;
-    auth_context<auth_type> m_auth;
+    auth_context<authentication::plain> m_auth;
     set_log_address;
 }; // namespace host
 

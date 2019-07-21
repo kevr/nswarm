@@ -171,7 +171,8 @@ public:
         m_socket = std::make_unique<tcp_socket>(io, ctx);
     }
 
-    void send(const data &data)
+    template <typename U>
+    void send(const basic_data<U> &data)
     {
         const auto &str = data.get_string();
 
@@ -396,7 +397,7 @@ private:
                 // IMPORTANT: This is all wrong. We need better overrides for
                 // ns::data
                 if (this->has_read()) {
-                    this->call_read(this->shared_from_this(), x);
+                    this->call_read(this->shared_from_this(), std::move(x));
                 }
                 start_read();
             }
@@ -412,11 +413,11 @@ private:
 
         if (!ec) {
             x.read_data(m_is);
-
-            // Construct message, pass to read fn if provided
             if (this->has_read()) {
-                this->call_read(this->shared_from_this(), x);
+                this->call_read(this->shared_from_this(), std::move(x));
             }
+
+            // Start reading again
             start_read();
         } else {
             handle_error(ec, "client socket closed while reading data chunk");

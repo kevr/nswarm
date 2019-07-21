@@ -172,6 +172,7 @@ private:
         })
             .on_read([this](auto client, auto msg) {
                 // on_read attempts to call protocol-level handlers
+                /*
                 try {
                     this->call(msg.type(), client, msg);
                 } catch (std::out_of_range &e) {
@@ -185,6 +186,8 @@ private:
                     loge("exception caught while running call for data type: ",
                          msg.type(), "; message: ", e.what());
                 }
+                */
+                this->call(msg.type(), client, msg);
             })
             .on_close([this](auto client) {
                 // Automatically try to reconnect

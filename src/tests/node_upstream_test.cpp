@@ -9,9 +9,13 @@ using namespace ns;
 class node_upstream_test : public ::testing::Test
 {
 protected:
+    static void SetUpTestCase()
+    {
+        ns::set_trace_logging(true);
+    }
+
     virtual void SetUp()
     {
-        set_trace_logging(true);
         trace();
         m_server.use_certificate("cert.crt", "cert.key");
         m_server.set_auth_key("abcd");
@@ -29,15 +33,25 @@ protected:
 
 TEST_F(node_upstream_test, auth_works)
 {
+    std::chrono::high_resolution_clock hrc;
+    std::chrono::time_point<std::chrono::high_resolution_clock> tp1, tp2;
+
     auto upstream = std::make_shared<node::upstream>(m_server.get_io_service());
-    upstream->on_connect([this](auto client) {
+    upstream->on_connect([&](auto client) {
         logi("sending auth key abcd");
+        tp1 = hrc.now();
         client->auth("abcd");
     });
     upstream->run("localhost", "6666");
     ns::wait_until([&] {
         return upstream->authenticated();
     });
+    tp2 = hrc.now();
+
+    auto delta =
+        std::chrono::duration_cast<std::chrono::milliseconds>(tp2 - tp1)
+            .count();
+    logi("Authentication took: ", delta, "ms");
 }
 
 TEST_F(node_upstream_test, task_response)

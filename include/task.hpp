@@ -77,7 +77,7 @@ public: // static functions
     }
 
 public: // public functions
-    task() = default;
+    using data::data;
 
     // We need to fix this
     task(const json &js)

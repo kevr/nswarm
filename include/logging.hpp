@@ -276,4 +276,10 @@ private:
         p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] " : "",        \
         __func__)
 
+#define tracemove() logd("MOVE");
+#define tracecopy() logd("COPY");
+#define tracevalue() logd("VALUE");
+
+#define tracef(val) logd(val)
+
 #endif

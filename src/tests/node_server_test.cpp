@@ -8,9 +8,13 @@
 class node_server_test : public ::testing::Test
 {
 protected:
-    virtual void SetUp()
+    static void SetUpTestCase()
     {
         ns::set_trace_logging(true);
+    }
+
+    virtual void SetUp()
+    {
         trace();
         // start() bad_weak_ptr, stop() segfault
         m_server = std::make_shared<ns::host::node_server>(6666);
