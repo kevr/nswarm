@@ -5,6 +5,10 @@ nswarm
 
 A network cluster comprised of a master controller and worker nodes connected to it. The cluster contains two servers: an api server and a node server. Nodes are composed of a daemon which connects to an upstream cluster, and a local service server that applications can connect to. The node daemon acts as a relay between service applications and the cluster.
 
+## Network Flow
+
+!["Networking Components"](https://github.com/kevr/nswarm/raw/master/doc/networking_components.png)
+
 ## Building
 
 	# Build entire project
