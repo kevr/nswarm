@@ -7,6 +7,8 @@ A network cluster comprised of a master controller and worker nodes connected to
 
 ## Network Flow
 
+The following diagram provides an overview of the core networking components involved in `nswarm`.
+
 !["Networking Components"](https://github.com/kevr/nswarm/raw/master/doc/networking_components.png)
 
 ## Building
