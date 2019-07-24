@@ -80,6 +80,9 @@ TEST(message_test, task_test)
     match(net::message::deduce(task.get_type()), [](auto t) {
         logi("Type: ", decltype(t)::human);
     });
+    match(net::task::deduce(task.get_task_type()), [](auto t) {
+        logi("Task Type: ", decltype(t)::human);
+    });
     match(net::action::deduce(task.get_action()), [](auto a) {
         logi("Action: ", decltype(a)::human);
     });
@@ -93,6 +96,9 @@ TEST(message_test, task_test)
     });
     match(net::message::deduce(task.get_type()), [](auto t) {
         logi("Type: ", decltype(t)::human);
+    });
+    match(net::task::deduce(task.get_task_type()), [](auto t) {
+        logi("Task Type: ", decltype(t)::human);
     });
     match(net::action::deduce(task.get_action()), [](auto a) {
         logi("Action: ", decltype(a)::human);
@@ -108,13 +114,20 @@ TEST(message_test, task_test)
     match(net::message::deduce(task.get_type()), [](auto t) {
         logi("Type: ", decltype(t)::human);
     });
+    match(net::task::deduce(task.get_task_type()), [](auto t) {
+        logi("Task Type: ", decltype(t)::human);
+    });
     match(net::action::deduce(task.get_action()), [](auto a) {
         logi("Action: ", decltype(a)::human);
     });
+
+    EXPECT_TRUE(task.has_error());
 
     // Create a call error task response with a message
     task = net::make_task_error<net::task::call>(
         "taskUUIDErrorMessage", "You did nothing wrong at all.");
     logi("Error JSON: ", task.data());
+
+    EXPECT_TRUE(task.has_error());
 }
 
