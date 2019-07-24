@@ -65,6 +65,44 @@ public:
 public:
     using json_message::json_message;
 
+    task(const task &t)
+        : json_message(t)
+    {
+        m_task_id = t.m_task_id;
+    }
+
+    task(task &&t)
+        : json_message(std::move(t))
+    {
+        m_task_id = std::move(t.m_task_id);
+    }
+
+    void operator=(task t)
+    {
+        json_message::operator=(std::move(t));
+        m_task_id = std::move(t.m_task_id);
+    }
+
+    // These should be provided for all L2 derivatives that
+    // have custom member variables.
+    task(const json_message &m)
+        : json_message(m)
+    {
+        m_task_id = get_json().at("task_id");
+    }
+
+    task(json_message &&m)
+        : json_message(std::move(m))
+    {
+        m_task_id = get_json().at("task_id");
+    }
+
+    void operator=(json_message m)
+    {
+        json_message::operator=(std::move(m));
+        m_task_id = get_json().at("task_id");
+    }
+
     const std::string &task_id() const
     {
         return m_task_id;
@@ -76,7 +114,7 @@ private:
 
     template <action::type>
     friend task make_task(const std::string &);
-};
+}; // namespace net
 
 template <action::type action_t>
 net::task make_task(const std::string &task_id, ns::json js)
@@ -262,7 +300,6 @@ using task_request = task<T, action_type::request>;
 
 template <typename T>
 using task_response = task<T, action_type::response>;
-
 }; // namespace ns
 
 #endif // NS_TASK_HPP
