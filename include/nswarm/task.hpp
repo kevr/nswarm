@@ -10,9 +10,12 @@
 #define NS_TASK_HPP
 
 #include <cstdint>
+#include <map>
 #include <nswarm/auth.hpp>
 #include <nswarm/data.hpp>
+#include <set>
 #include <string>
+#include <vector>
 
 namespace ns
 {
@@ -68,18 +71,21 @@ public:
     task(const task &t)
         : json_message(t)
     {
+        m_response_f = t.m_response_f;
         m_task_id = t.m_task_id;
     }
 
     task(task &&t)
         : json_message(std::move(t))
     {
+        m_response_f = std::move(t.m_response_f);
         m_task_id = std::move(t.m_task_id);
     }
 
     void operator=(task t)
     {
         json_message::operator=(std::move(t));
+        m_response_f = std::move(t.m_response_f);
         m_task_id = std::move(t.m_task_id);
     }
 
@@ -143,7 +149,15 @@ private:
 
     template <task::type, action::type>
     friend net::task make_task(const std::string &);
+};
+
 }; // namespace net
+}; // namespace ns
+
+namespace ns
+{
+namespace net
+{
 
 template <task::type task_t, action::type action_t>
 net::task make_task(const std::string &task_id, ns::json js)
@@ -215,6 +229,50 @@ net::task make_task_error(const std::string &task_id,
     t.update(js);
     return t;
 }
+
+// Task manager class.
+class task_dispatcher
+{
+    std::unordered_map<std::string, net::task> m_tasks;
+
+public:
+    task_dispatcher() = default;
+
+    net::task create(task::type task_t, std::function<void(net::task)> on_resp)
+    {
+        const std::string uuid("taskUUID");
+        auto t = match(task::deduce(task_t), [=](auto t) {
+            return make_task_request<decltype(t)::type>(uuid);
+        });
+        t.on_response(on_resp);
+        auto task_id = t.task_id();
+        m_tasks.emplace(t.task_id(), std::move(t));
+        return t;
+    }
+
+    /**
+     * \param t A task response.
+     * \return The popped task
+     * This function throws if the given task's task_id is not
+     * found in the internal task map.
+     **/
+    net::task respond(net::task t)
+    {
+        if (t.get_action() != action::type::response)
+            throw std::invalid_argument("task request supplied to response(t)");
+
+        auto task_i = m_tasks.find(t.task_id());
+        if (task_i == m_tasks.end())
+            throw std::out_of_range(t.task_id() + " is an invalid task_id");
+
+        auto [k, v] = *task_i;
+
+        v.respond(std::move(t)); // We might want exceptions here for ctrl
+        m_tasks.erase(task_i);   // Task is done.
+
+        return std::move(v); // Return the task structure to the user
+    }
+};
 
 }; // namespace net
 
