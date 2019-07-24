@@ -151,14 +151,6 @@ private:
     friend net::task make_task(const std::string &);
 };
 
-}; // namespace net
-}; // namespace ns
-
-namespace ns
-{
-namespace net
-{
-
 template <task::type task_t, action::type action_t>
 net::task make_task(const std::string &task_id, ns::json js)
 {
