@@ -25,3 +25,10 @@ target_link_libraries(node_upstream_test gtest_main)
 
 add_executable(variant_test variant_test.cpp)
 target_link_libraries(variant_test gtest_main)
+
+add_executable(service_server_test service_server_test.cpp)
+target_link_libraries(service_server_test gtest_main)
+
+add_executable(message_test message_test.cpp)
+target_link_libraries(message_test gtest_main)
+

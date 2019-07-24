@@ -171,8 +171,8 @@ public:
         m_socket = std::make_unique<tcp_socket>(io, ctx);
     }
 
-    template <typename U>
-    void send(const basic_data<U> &data)
+    template <typename D>
+    void send(const D &data)
     {
         const auto &str = data.get_string();
 
@@ -182,13 +182,6 @@ public:
                 "data.size() is too large. maximum payload size is "
                 "std::numeric_limits<uint32_t>::max(): " +
                 std::to_string(std::numeric_limits<uint32_t>::max()));
-
-        // data.size() *must* be equivalent to payload size
-        if (data.size() != str.size())
-            throw std::invalid_argument(
-                "data_size in header mismatched string data size: " +
-                std::to_string(data.size()) + " vs " +
-                std::to_string(data.get_string().size()));
 
         // We should send a valid header no matter what.
         uint64_t header = data.header();

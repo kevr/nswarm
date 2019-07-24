@@ -17,6 +17,241 @@ namespace ns
 // Alias json here, thanks nlohmann! <3
 using nlohmann::json;
 
+namespace net
+{
+
+/**
+ * Layout: [16:type][14:args][1:error][1:direction][32:size]
+ *
+ * We decide to omit storage for error and direction to keep
+ * alignment at 64-bits. We bit shift to extract the separate
+ * fields from the argument section.
+ **/
+class header
+{
+    uint16_t m_type{0};
+    uint16_t m_args{0};
+    uint32_t m_size{0};
+
+public:
+    header() = default;
+
+    // Shift/cast and mask out different fields of the header.
+    header(uint64_t bits)
+        : m_type(bits >> 48)       // Left-most 16 bits
+        , m_args(bits >> 32)       // The next 16 bits
+        , m_size((uint32_t)(bits)) // Right-most 32 bits
+    {
+    }
+
+    header(uint16_t type, uint16_t args, uint8_t error, uint8_t direction,
+           uint32_t size)
+        : m_type(type)
+        // Pack args
+        , m_args(args | (error << 1) | (direction))
+        , m_size(size)
+    {
+    }
+
+    const uint64_t value() const
+    {
+        return pack(m_type, m_args, m_size);
+    }
+
+    const uint16_t type() const
+    {
+        return m_type;
+    }
+
+    const uint16_t args() const
+    {
+        // Just shift args on top of error/direction
+        return m_args >> 2;
+    }
+
+    const uint8_t error() const
+    {
+        return (uint8_t)(m_args >> 1) & 1;
+    }
+
+    const uint8_t direction() const
+    {
+        return (uint8_t)(m_args & 1);
+    }
+
+    const uint32_t size() const
+    {
+        return m_size;
+    }
+
+public: // Static functions
+    static uint64_t pack(uint16_t type, uint16_t args, uint8_t error,
+                         uint8_t direction, uint32_t size)
+    {
+        // Pack everything into a 64-bit value.
+        return (uint64_t(type) << 48) | (uint64_t(args) << 32) |
+               (uint64_t(error & 1) << 33) | (uint64_t(direction & 1) << 32) |
+               uint64_t(size);
+    }
+
+    static uint64_t pack(uint16_t type, uint16_t args, uint32_t size)
+    {
+        return (uint64_t(type) << 48) | (uint64_t(args) << 32) | uint64_t(size);
+    }
+};
+
+class message
+{
+protected:
+    net::header m_header;
+    std::string m_data;
+
+public: // Message constructors
+    message() = default;
+
+    message(const message &msg)
+        : m_header(msg.m_header)
+        , m_data(msg.m_data)
+    {
+    }
+
+    void operator=(const message &msg)
+    {
+        m_header = msg.m_header;
+        m_data = msg.m_data;
+    }
+
+    message(message &&msg)
+        : m_header(msg.m_header)
+        , m_data(std::move(msg.m_data))
+    {
+    }
+
+    void operator=(message &&msg)
+    {
+        m_header = msg.m_header;
+        m_data = std::move(msg.m_data);
+    }
+
+public: // Initialization constructors
+    message(const net::header &head)
+        : m_header(head)
+    {
+    }
+
+    message(const net::header &head, std::string data)
+        : m_header(head)
+        , m_data(std::move(data))
+    {
+    }
+
+    // Provide three update overloads for different situations.
+    // Messages can be partially correct while we have not yet
+    // received payload data.
+    void update(const net::header &head)
+    {
+        m_header = head;
+    }
+
+    void update(std::string data)
+    {
+        m_data = std::move(data);
+        // Fix header size field if it's not yet matched
+        if (m_header.size() != m_data.size()) {
+            m_header =
+                net::header(m_header.type(), m_header.args(), m_header.error(),
+                            m_header.direction(), m_data.size());
+        }
+    }
+
+    void update(const net::header &head, std::string data)
+    {
+        update(head);
+        update(std::move(data));
+    }
+
+public:
+    const net::header &head() const
+
+    {
+        return m_header;
+    }
+
+    const std::string &data() const
+    {
+        return m_data;
+    }
+
+    const std::string &get_string() const
+    {
+        return data();
+    }
+};
+
+class json_message : public net::message
+{
+protected:
+    ns::json m_json;
+
+public:
+    // Inherit constructors
+    using message::message;
+    using message::update;
+
+    // Some overloads for json updates
+    json_message(const net::header &head, ns::json data)
+        : message(head)
+    {
+        update(std::move(data));
+    }
+
+    json_message(const json_message &msg)
+        : message(msg) // Delegate header over to base
+    {
+        m_json = msg.m_json;
+    }
+
+    void operator=(const json_message &msg)
+    {
+        message::operator=(msg);
+        m_json = msg.m_json;
+    }
+
+    json_message(json_message &&msg)
+        : message(std::move(msg)) // Delegate header over to base
+    {
+        m_json = std::move(msg.m_json);
+    }
+
+    void operator=(json_message &&msg)
+    {
+        message::operator=(std::move(msg));
+        m_json = std::move(msg.m_json);
+    }
+
+    void update(ns::json data)
+    {
+        m_json = std::move(data);
+        update(m_json.dump());
+    }
+
+    const ns::json &json() const
+    {
+        return m_json;
+    }
+
+    const ns::json &get_json()
+    {
+        if (!m_json.size())
+            m_json = json::parse(m_data);
+        return json();
+    }
+};
+
+}; // namespace net
+
+using json_message = net::json_message;
+
 namespace value
 {
 enum data_value : uint16_t {
@@ -379,7 +614,6 @@ inline std::string action_value_string(const value::action_value type)
     };
     return types.at(type);
 }
-
 }; // namespace ns
 
 inline std::stringstream &operator<<(std::stringstream &os,

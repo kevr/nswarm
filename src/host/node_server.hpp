@@ -124,16 +124,14 @@ public:
         })
             .on_read([this](auto client, auto msg) {
                 // When we read from a node, use m_proto to decide what to do.i
-                // try {
-                this->call(msg.type(), client, msg);
-                /*
-            } catch (std::exception &e) {
-                auto type = ns::data_value_string(msg.type());
-                loge(
-                    "exception thrown while calling protocol method type [",
-                    type, "]: ", e.what());
-            }
-            */
+                try {
+                    this->call(msg.type(), client, msg);
+                } catch (std::exception &e) {
+                    auto type = ns::data_value_string(msg.type());
+                    loge(
+                        "exception thrown while calling protocol method type [",
+                        type, "]: ", e.what());
+                }
             })
             .on_close([this](auto client) {
                 m_nodes.erase(m_nodes.find(client));
