@@ -108,15 +108,20 @@ public:
         return m_task_id;
     }
 
+    const task::type get_task_type() const
+    {
+        return static_cast<task::type>(head().args());
+    }
+
 private:
-    template <action::type>
+    template <task::type, action::type>
     friend task make_task(const std::string &, ns::json);
 
-    template <action::type>
+    template <task::type, action::type>
     friend task make_task(const std::string &);
 }; // namespace net
 
-template <action::type action_t>
+template <task::type task_t, action::type action_t>
 net::task make_task(const std::string &task_id, ns::json js)
 {
     if (task_id.size() == 0)
@@ -125,15 +130,15 @@ net::task make_task(const std::string &task_id, ns::json js)
     js["task_id"] = task_id;
 
     auto size = js.dump().size();
-    net::task t(
-        net::header(message::type::task, error::type::none, 0, action_t, size),
-        std::move(js));
+    net::task t(net::header(message::type::task, task_t, error::type::none,
+                            action_t, size),
+                std::move(js));
     t.m_task_id = task_id;
 
     return t;
 }
 
-template <action::type action_t>
+template <task::type task_t, action::type action_t>
 net::task make_task(const std::string &task_id)
 {
     if (task_id.size() == 0)
@@ -143,40 +148,44 @@ net::task make_task(const std::string &task_id)
     js["task_id"] = task_id;
 
     auto size = js.dump().size();
-    net::task t(
-        net::header(message::type::task, error::type::none, 0, action_t, size),
-        std::move(js));
+    net::task t(net::header(message::type::task, task_t, error::type::none,
+                            action_t, size),
+                std::move(js));
     t.m_task_id = task_id;
 
     return t;
 }
 
-template <typename... Args>
+template <task::type task_t, typename... Args>
 net::task make_task_request(Args &&... args)
 {
-    return make_task<action::type::request>(std::forward<Args>(args)...);
+    return make_task<task_t, action::type::request>(
+        std::forward<Args>(args)...);
 }
 
-template <typename... Args>
+template <task::type task_t, typename... Args>
 net::task make_task_response(Args &&... args)
 {
-    return make_task<action::type::response>(std::forward<Args>(args)...);
+    return make_task<task_t, action::type::response>(
+        std::forward<Args>(args)...);
 }
 
-inline net::task make_task_error(const std::string &task_id)
+template <task::type task_t>
+net::task make_task_error(const std::string &task_id)
 {
     // Use friendly function, then update the header with error bit
-    auto t = make_task<action::type::response>(task_id);
+    auto t = make_task<task_t, action::type::response>(task_id);
     t.update(net::header(t.get_type(), t.head().args(), error::type::set,
                          t.get_action(), t.head().size()));
     return t;
 }
 
 // Only responses can be errors. It doesn't make sense to request an error.
-inline net::task make_task_error(const std::string &task_id,
-                                 const std::string &error_msg)
+template <task::type task_t>
+net::task make_task_error(const std::string &task_id,
+                          const std::string &error_msg)
 {
-    auto t = make_task_error(task_id);
+    auto t = make_task_error<task_t>(task_id);
     auto js = t.get_json();
     js["error"] = error_msg;
     t.update(js);

@@ -69,7 +69,9 @@ TEST(message_test, json_message)
 
 TEST(message_test, task_test)
 {
-    auto task = net::make_task_request("taskUUID");
+    // Create an event task request
+    auto task =
+        net::make_task_request<net::task::event>("taskUUIDEventRequest");
     logi("Created task with id: ", task.task_id());
 
     match(net::error::deduce(task.get_error()), [](auto e) {
@@ -82,7 +84,8 @@ TEST(message_test, task_test)
         logi("Action: ", decltype(a)::human);
     });
 
-    task = net::make_task_error("taskUUIDError");
+    // Create a call task request
+    task = net::make_task_request<net::task::call>("taskUUIDCallRequest");
     logi("Created task with id: ", task.task_id());
 
     match(net::error::deduce(task.get_error()), [](auto e) {
@@ -95,8 +98,23 @@ TEST(message_test, task_test)
         logi("Action: ", decltype(a)::human);
     });
 
-    task =
-        net::make_task_error("taskUUIDError", "You did nothing wrong at all.");
+    // Create a call error task response
+    task = net::make_task_error<net::task::call>("taskUUIDError");
+    logi("Created task with id: ", task.task_id());
+
+    match(net::error::deduce(task.get_error()), [](auto e) {
+        logi("Error state: ", decltype(e)::human);
+    });
+    match(net::message::deduce(task.get_type()), [](auto t) {
+        logi("Type: ", decltype(t)::human);
+    });
+    match(net::action::deduce(task.get_action()), [](auto a) {
+        logi("Action: ", decltype(a)::human);
+    });
+
+    // Create a call error task response with a message
+    task = net::make_task_error<net::task::call>(
+        "taskUUIDErrorMessage", "You did nothing wrong at all.");
     logi("Error JSON: ", task.data());
 }
 
