@@ -47,8 +47,9 @@ public:
     header(uint16_t type, uint16_t args, uint8_t error, uint8_t direction,
            uint32_t size)
         : m_type(type)
-        // Pack args
-        , m_args(args | (error << 1) | (direction))
+        // Take the right-most 14 bits in args and the right-most
+        // bit in the other two to pack an internal 16-bit args integer
+        , m_args((args << 2) | ((error & 1) << 1) | (direction & 1))
         , m_size(size)
     {
     }
