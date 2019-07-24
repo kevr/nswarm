@@ -14,10 +14,10 @@ TEST(message_test, json_message)
     net::json_message js;
     js.update(head);
 
-    EXPECT_EQ(js.head().type(), data_type::auth::value);
+    EXPECT_EQ(to_type(js.get_type()), net::message::auth);
     EXPECT_EQ(js.head().args(), 0);
-    EXPECT_EQ(js.head().error(), 0);
-    EXPECT_EQ(js.head().direction(), action_type::request::value);
+    EXPECT_EQ(to_error(js.get_error()), net::error::none);
+    EXPECT_EQ(to_action(js.get_action()), net::action::request);
     EXPECT_EQ(js.head().size(), 0);
 
     json data;
@@ -43,5 +43,29 @@ TEST(message_test, json_message)
     EXPECT_EQ(js.head().size(), data.dump().size());
     EXPECT_EQ(js.head().size(), js.data().size());
     EXPECT_EQ(js.head().size(), js.json().dump().size());
+
+    EXPECT_FALSE(js.has_error());
+
+    match(net::message::deduce(js.get_type()), [](auto t) {
+        logi("Type: ", decltype(t)::human);
+    });
+
+    match(net::action::deduce(js.get_action()), [](auto act) {
+        logi("Action: ", decltype(act)::human);
+    });
+
+    uint16_t value = 0;
+    std::cout << "Enter a message value: ";
+    ASSERT_TRUE(std::cin >> value);
+
+    match(net::message::deduce(value), [](auto msg) {
+        logi(decltype(msg)::human);
+    });
+    // Auto is required to catch possible bad
+    match(net::error::deduce(js.get_error()), [](auto err) {
+        logi(decltype(err)::human);
+    });
+
+    logi("JSON: ", js.get_json().dump());
 }
 

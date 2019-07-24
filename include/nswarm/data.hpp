@@ -26,6 +26,9 @@ namespace net
  * We decide to omit storage for error and direction to keep
  * alignment at 64-bits. We bit shift to extract the separate
  * fields from the argument section.
+ *
+ * This header should be encapsulated inside of net::message
+ * below, or an object derived from net::message.
  **/
 class header
 {
@@ -101,11 +104,168 @@ public: // Static functions
     }
 };
 
+struct error {
+    // net::error::type::*
+    enum type : uint8_t { none = 0x0, set = 0x1, bad };
+
+    // Variant tags
+    struct tag {
+        struct none {
+            static constexpr error::type type = error::type::none;
+            static constexpr const char *const human = "error::type::none";
+        };
+
+        // set means that an error exists.
+        struct set {
+            static constexpr error::type type = error::type::set;
+            static constexpr const char *const human = "error::type::set";
+        };
+
+        struct bad {
+            static constexpr error::type type = error::type::bad;
+            static constexpr const char *const human = "error::type::bad";
+        };
+    };
+
+    using variant = std::variant<tag::none, tag::set, tag::bad>;
+
+    // Deduce a variant from a real-time error::type value.
+    //
+    // Example:
+    //     ns::match(deduce(msg.error()),
+    //         [](error::type::set) {
+    //             std::cerr << "Got an error.";
+    //         });
+    //
+    static constexpr variant deduce(error::type t)
+    {
+        switch (t) {
+        case error::type::none:
+            return tag::none{};
+        case error::type::set:
+            return tag::set{};
+        case error::type::bad:
+            return tag::bad{};
+        }
+        return tag::bad{};
+    }
+    static constexpr variant deduce(uint8_t t)
+    {
+        return deduce(static_cast<error::type>(t));
+    }
+};
+
+struct action {
+    // net::action::type::*
+    enum type : uint8_t { request = 0x0, response = 0x1, bad };
+
+    struct tag {
+        struct request {
+            static constexpr action::type type = action::type::request;
+            static constexpr const char *const human = "action::type::request";
+        };
+        struct response {
+            static constexpr action::type type = action::type::response;
+            static constexpr const char *const human = "action::type::response";
+        };
+        struct bad {
+            static constexpr action::type type = action::type::bad;
+            static constexpr const char *const human = "action::type::bad";
+        };
+    };
+
+    using variant = std::variant<tag::request, tag::response, tag::bad>;
+
+    // Deduce a variant from a real-time action::type value
+    static constexpr variant deduce(action::type t)
+    {
+        switch (t) {
+        case action::type::request:
+            return tag::request{};
+        case action::type::response:
+            return tag::response{};
+        case action::type::bad:
+            return tag::bad{};
+        }
+        // Otherwise, return bad
+        return tag::bad{};
+    }
+    static constexpr variant deduce(uint8_t t)
+    {
+        return deduce(static_cast<action::type>(t));
+    }
+};
+
+// Namespace this class to avoid conflicts
+namespace impl
+{
+
 class message
 {
 protected:
     net::header m_header;
     std::string m_data;
+
+public: // Some constant structure data
+    // net::message::type::*
+    enum type : uint16_t {
+        auth = 0x1,
+        implement = 0x2,
+        subscribe = 0x3,
+        task = 0x4,
+        bad,
+    };
+
+    // Variant tags
+    struct tag {
+        struct auth {
+            static constexpr message::type type = message::type::auth;
+            static constexpr const char *const human = "message::type::auth";
+        };
+        struct implement {
+            static constexpr message::type type = message::type::implement;
+            static constexpr const char *const human =
+                "message::type::implement";
+        };
+        struct subscribe {
+            static constexpr message::type type = message::type::subscribe;
+            static constexpr const char *const human =
+                "message::type::subscribe";
+        };
+        struct task {
+            static constexpr message::type type = message::type::task;
+            static constexpr const char *const human = "message::type::task";
+        };
+        struct bad {
+            static constexpr message::type type = message::type::bad;
+            static constexpr const char *const human = "message::type::bad";
+        };
+    };
+
+    using variant = std::variant<tag::auth, tag::implement, tag::subscribe,
+                                 tag::task, tag::bad>;
+
+    // Deduce a variant from a real-time message::type value
+    static constexpr variant deduce(message::type t)
+    {
+        switch (t) {
+        case message::type::auth:
+            return tag::auth{};
+        case message::type::implement:
+            return tag::implement{};
+        case message::type::subscribe:
+            return tag::subscribe{};
+        case message::type::task:
+            return tag::task{};
+        case message::type::bad:
+            return tag::bad{};
+        }
+        return tag::bad{};
+    }
+    static constexpr variant deduce(uint16_t t)
+    {
+        return deduce(static_cast<message::type>(t));
+    }
 
 public: // Message constructors
     message() = default;
@@ -172,6 +332,26 @@ public: // Initialization constructors
     }
 
 public:
+    const net::error::type get_error() const
+    {
+        return static_cast<net::error::type>(m_header.error());
+    }
+
+    const bool has_error() const
+    {
+        return get_error() == error::type::set;
+    }
+
+    const net::action::type get_action() const
+    {
+        return static_cast<net::action::type>(m_header.direction());
+    }
+
+    const message::type get_type() const
+    {
+        return static_cast<message::type>(m_header.type());
+    }
+
     const net::header &head() const
 
     {
@@ -188,6 +368,9 @@ public:
         return data();
     }
 };
+}; // namespace impl
+
+using message = impl::message;
 
 class json_message : public net::message
 {
@@ -255,13 +438,14 @@ using json_message = net::json_message;
 
 namespace value
 {
+// Start this value at 1, we don't want to accept 0 as a valid type.
 enum data_value : uint16_t {
     auth = 1,  // Authentication: node -> cluster, api -> cluster
     implement, // Provide a method: node -> host
     subscribe, // Subscribe to an event: node -> host
     task,      // Method or event task: api -> host -> node -> host -> api
 };
-};
+}; // namespace value
 
 namespace data_type
 {
@@ -301,7 +485,7 @@ inline variant deduce(const value::data_value t)
 
 namespace value
 {
-enum action_value : uint16_t { request = 0, response = 1 };
+enum action_value : uint8_t { request = 0, response = 1 };
 };
 
 namespace action_type
@@ -631,24 +815,55 @@ inline std::stringstream &operator<<(std::stringstream &os,
     return os;
 }
 
-inline bool operator==(ns::value::data_value a, uint16_t b)
+// "New enum" overload helpers
+inline bool operator==(ns::net::error::type lhs, uint8_t rhs)
 {
-    return a == (ns::value::data_value)b;
+    return lhs == static_cast<ns::net::error::type>(rhs);
 }
 
-inline bool operator==(uint16_t a, ns::value::data_value b)
+inline bool operator==(uint8_t lhs, ns::net::error::type rhs)
 {
-    return (ns::value::data_value)a == b;
+    return static_cast<ns::net::error::type>(lhs) == rhs;
 }
 
-inline bool operator==(ns::value::action_value a, uint8_t b)
+inline bool operator==(ns::net::action::type lhs, uint8_t rhs)
 {
-    return a == (ns::value::action_value)b;
+    return lhs == static_cast<ns::net::action::type>(rhs);
 }
 
-inline bool operator==(uint8_t a, ns::value::action_value b)
+inline bool operator==(uint8_t lhs, ns::net::action::type rhs)
 {
-    return (ns::value::action_value)a == b;
+    return static_cast<ns::net::action::type>(lhs) == rhs;
 }
+
+inline bool operator==(ns::net::message::type lhs, uint16_t rhs)
+{
+    return lhs == static_cast<ns::net::message::type>(rhs);
+}
+
+inline bool operator==(uint16_t lhs, ns::net::message::type rhs)
+{
+    return static_cast<ns::net::message::type>(lhs) == rhs;
+}
+
+namespace ns
+{
+
+inline net::error::type to_error(uint8_t e)
+{
+    return static_cast<net::error::type>(e);
+}
+
+inline net::action::type to_action(uint8_t e)
+{
+    return static_cast<net::action::type>(e);
+}
+
+inline net::message::type to_type(uint16_t e)
+{
+    return static_cast<net::message::type>(e);
+}
+
+}; // namespace ns
 
 #endif
