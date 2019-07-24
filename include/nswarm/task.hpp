@@ -113,12 +113,36 @@ public:
         return static_cast<task::type>(head().args());
     }
 
+    void on_response(std::function<void(net::task)> f)
+    {
+        m_response_f = f;
+    }
+
+    void respond(net::task t) noexcept
+    {
+        if (m_response_f)
+            m_response_f(std::move(t));
+    }
+
 private:
-    template <task::type, action::type>
-    friend task make_task(const std::string &, ns::json);
+    // This task callback function should capture its necessary
+    // connections by copies of their shared_ptrs when registering
+    // on_response. Typically, you would have an upstream connection
+    // in this callback to trigger propagation.
+    //
+    // Ex.
+    //
+    // on_response([=](net::task t) {
+    //     upstream->send(std::move(t));
+    // });
+    //
+    std::function<void(net::task)> m_response_f;
 
     template <task::type, action::type>
-    friend task make_task(const std::string &);
+    friend net::task make_task(const std::string &, ns::json);
+
+    template <task::type, action::type>
+    friend net::task make_task(const std::string &);
 }; // namespace net
 
 template <task::type task_t, action::type action_t>
