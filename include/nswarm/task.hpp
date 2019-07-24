@@ -9,13 +9,143 @@
 #ifndef NS_TASK_HPP
 #define NS_TASK_HPP
 
+#include <cstdint>
 #include <nswarm/auth.hpp>
 #include <nswarm/data.hpp>
-#include <cstdint>
 #include <string>
 
 namespace ns
 {
+
+namespace net
+{
+
+class task : public json_message
+{
+protected:
+    std::string m_task_id;
+
+public:
+    enum type { call = 0x0, event = 0x1, bad };
+
+    struct tag {
+        struct call {
+            static constexpr task::type type = task::type::call;
+            static constexpr const char *const human = "task::type::call";
+        };
+        struct event {
+            static constexpr task::type type = task::type::event;
+            static constexpr const char *const human = "task::type::event";
+        };
+        struct bad {
+            static constexpr task::type type = task::type::bad;
+            static constexpr const char *const human = "task::type::bad";
+        };
+    };
+
+    using variant = std::variant<tag::call, tag::event, tag::bad>;
+
+    static constexpr variant deduce(task::type t)
+    {
+        switch (t) {
+        case task::type::call:
+            return tag::call{};
+        case task::type::event:
+            return tag::event{};
+        case task::type::bad:
+            return tag::bad{};
+        }
+        return tag::bad{};
+    }
+    static constexpr variant deduce(uint16_t t)
+    {
+        return deduce(static_cast<task::type>(t));
+    }
+
+public:
+    using json_message::json_message;
+
+    const std::string &task_id() const
+    {
+        return m_task_id;
+    }
+
+private:
+    template <action::type>
+    friend task make_task(const std::string &, ns::json);
+
+    template <action::type>
+    friend task make_task(const std::string &);
+};
+
+template <action::type action_t>
+net::task make_task(const std::string &task_id, ns::json js)
+{
+    if (task_id.size() == 0)
+        throw std::out_of_range("task_id cannot be empty");
+
+    js["task_id"] = task_id;
+
+    auto size = js.dump().size();
+    net::task t(
+        net::header(message::type::task, error::type::none, 0, action_t, size),
+        std::move(js));
+    t.m_task_id = task_id;
+
+    return t;
+}
+
+template <action::type action_t>
+net::task make_task(const std::string &task_id)
+{
+    if (task_id.size() == 0)
+        throw std::out_of_range("task_id cannot be empty");
+
+    ns::json js;
+    js["task_id"] = task_id;
+
+    auto size = js.dump().size();
+    net::task t(
+        net::header(message::type::task, error::type::none, 0, action_t, size),
+        std::move(js));
+    t.m_task_id = task_id;
+
+    return t;
+}
+
+template <typename... Args>
+net::task make_task_request(Args &&... args)
+{
+    return make_task<action::type::request>(std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+net::task make_task_response(Args &&... args)
+{
+    return make_task<action::type::response>(std::forward<Args>(args)...);
+}
+
+inline net::task make_task_error(const std::string &task_id)
+{
+    // Use friendly function, then update the header with error bit
+    auto t = make_task<action::type::response>(task_id);
+    t.update(net::header(t.get_type(), t.head().args(), error::type::set,
+                         t.get_action(), t.head().size()));
+    return t;
+}
+
+// Only responses can be errors. It doesn't make sense to request an error.
+inline net::task make_task_error(const std::string &task_id,
+                                 const std::string &error_msg)
+{
+    auto t = make_task_error(task_id);
+    auto js = t.get_json();
+    js["error"] = error_msg;
+    t.update(js);
+    return t;
+}
+
+}; // namespace net
 
 /**
  * task_value: Flags field of a task data message.

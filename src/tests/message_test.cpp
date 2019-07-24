@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <nswarm/data.hpp>
+#include <nswarm/task.hpp>
 
 using namespace ns;
 
@@ -54,10 +55,7 @@ TEST(message_test, json_message)
         logi("Action: ", decltype(act)::human);
     });
 
-    uint16_t value = 0;
-    std::cout << "Enter a message value: ";
-    ASSERT_TRUE(std::cin >> value);
-
+    uint16_t value = 7;
     match(net::message::deduce(value), [](auto msg) {
         logi(decltype(msg)::human);
     });
@@ -67,5 +65,38 @@ TEST(message_test, json_message)
     });
 
     logi("JSON: ", js.get_json().dump());
+}
+
+TEST(message_test, task_test)
+{
+    auto task = net::make_task_request("taskUUID");
+    logi("Created task with id: ", task.task_id());
+
+    match(net::error::deduce(task.get_error()), [](auto e) {
+        logi("Error state: ", decltype(e)::human);
+    });
+    match(net::message::deduce(task.get_type()), [](auto t) {
+        logi("Type: ", decltype(t)::human);
+    });
+    match(net::action::deduce(task.get_action()), [](auto a) {
+        logi("Action: ", decltype(a)::human);
+    });
+
+    task = net::make_task_error("taskUUIDError");
+    logi("Created task with id: ", task.task_id());
+
+    match(net::error::deduce(task.get_error()), [](auto e) {
+        logi("Error state: ", decltype(e)::human);
+    });
+    match(net::message::deduce(task.get_type()), [](auto t) {
+        logi("Type: ", decltype(t)::human);
+    });
+    match(net::action::deduce(task.get_action()), [](auto a) {
+        logi("Action: ", decltype(a)::human);
+    });
+
+    task =
+        net::make_task_error("taskUUIDError", "You did nothing wrong at all.");
+    logi("Error JSON: ", task.data());
 }
 
