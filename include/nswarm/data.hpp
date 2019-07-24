@@ -630,4 +630,24 @@ inline std::stringstream &operator<<(std::stringstream &os,
     return os;
 }
 
+inline bool operator==(ns::value::data_value a, uint16_t b)
+{
+    return a == (ns::value::data_value)b;
+}
+
+inline bool operator==(uint16_t a, ns::value::data_value b)
+{
+    return (ns::value::data_value)a == b;
+}
+
+inline bool operator==(ns::value::action_value a, uint8_t b)
+{
+    return a == (ns::value::action_value)b;
+}
+
+inline bool operator==(uint8_t a, ns::value::action_value b)
+{
+    return (ns::value::action_value)a == b;
+}
+
 #endif

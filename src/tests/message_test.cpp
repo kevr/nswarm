@@ -3,26 +3,6 @@
 
 using namespace ns;
 
-bool operator==(value::data_value a, uint16_t b)
-{
-    return a == (value::data_value)b;
-}
-
-bool operator==(uint16_t a, value::data_value b)
-{
-    return (value::data_value)a == b;
-}
-
-bool operator==(value::action_value a, uint8_t b)
-{
-    return a == (value::action_value)b;
-}
-
-bool operator==(uint8_t a, value::action_value b)
-{
-    return (value::action_value)a == b;
-}
-
 TEST(message_test, json_message)
 {
     const uint8_t error_value = 0;
