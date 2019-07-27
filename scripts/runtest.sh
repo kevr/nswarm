@@ -16,17 +16,24 @@ for _test in $tests; do
     fi
 done
 
-if [ -z "$failed" ]; then
-    echo "All tests passed!"
-fi
-
 # Print summary
-echo "========= +SUMMARY+ =========="
-echo "Tests ran: $(for t in $tests; do echo -n $(basename $t); echo -n ' '; done)"
+echo "========= + SUMMARY + =========="
+echo
+echo "Tests ran:"
+
+for t in $tests; do
+    echo "    $(basename $t)"
+done
 
 if [[ "$failed" ]]; then
-echo "Test failed: $failed"
+    echo
+    echo "Test failed: $failed"
+    echo
+else
+    echo
+    echo "All tests passed!"
+    echo
 fi
 
-echo "========= -SUMMARY- =========="
+echo "========= - SUMMARY - =========="
 
