@@ -245,6 +245,16 @@ static inline void set_trace_logging(bool enabled)
     if (enabled)
         logd("enabled trace logging");
 }
+
+static const int line_buffering = _IOLBF;
+
+// This has to be executed after we fork
+inline void set_buffer_mode(int mode)
+{
+    setvbuf(stdout, NULL, mode, 0);
+    setvbuf(stderr, NULL, mode, 0);
+};
+
 }; // namespace ns
 
 class atexit_func

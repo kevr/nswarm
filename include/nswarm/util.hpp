@@ -10,10 +10,12 @@
 #ifndef NS_UTIL_HPP
 #define NS_UTIL_HPP
 
-#include <nswarm/logging.hpp>
 #include <mutex>
+#include <nswarm/logging.hpp>
 #include <stdexcept>
+#include <sys/stat.h>
 #include <thread>
+#include <vector>
 
 namespace ns
 {
@@ -83,6 +85,48 @@ public:
                1000.0;
     }
 };
+
+inline bool file_exists(const std::string &path)
+{
+    struct stat buf;
+    return stat(path.c_str(), &buf) == 0;
+}
+
+// These three functions will construct a vector of paths that
+// we found to exist on the filesystem.
+//
+// For example: any_file("a", "b") -> std::vector{"a", "b"} if a and b
+// are real files in the filesystem. any_file("a", "b") -> std::vector{"a"} if
+// a exists but b does not.
+//
+template <typename... Args>
+std::vector<std::string> _any_file(const std::string &path)
+{
+    if (file_exists(path))
+        return std::vector{path};
+    return std::vector<std::string>{};
+}
+
+template <typename... Args>
+std::vector<std::string> _any_file(const std::string &path, Args &&... args)
+{
+    if (file_exists(path)) {
+        // Concatenate vectors
+        std::vector v{path};
+        std::vector next{_any_file(std::forward<Args>(args)...)};
+        v.insert(v.end(), next.begin(), next.end());
+        return v;
+    }
+    return _any_file(std::forward<Args>(args)...);
+}
+
+// Will return _all_ paths which have been found
+template <typename... Args>
+std::vector<std::string> any_file(Args &&... args)
+{
+    return _any_file(std::forward<Args>(args)...);
+}
+
 }; // namespace util
 
 }; // namespace ns

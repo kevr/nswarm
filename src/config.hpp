@@ -10,8 +10,11 @@
 #ifndef NS_CONFIG_HPP
 #define NS_CONFIG_HPP
 
+#include <nswarm/util.hpp>
+
 // c++ standard library
 #include <boost/program_options.hpp>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <string>
@@ -64,6 +67,51 @@ public:
             std::cout << "error: " << e.what() << std::endl << std::endl;
             m_valid = false;
         }
+
+        for (const auto &required : m_required) {
+            if (!exists(required)) {
+                std::cout << "error: required key missing '" << required << "'"
+                          << std::endl
+                          << std::endl;
+                m_valid = false;
+                break;
+            }
+        }
+    }
+
+    // ini configuration file
+    void parse_config(const std::string &path)
+    {
+        std::ifstream ifs(path.c_str());
+        if (!ifs.is_open()) {
+            m_valid = false;
+            return;
+        }
+
+        // Try to parse it
+        try {
+            boost::program_options::store(
+                boost::program_options::parse_config_file(ifs, m_desc), m_vm);
+            boost::program_options::notify(m_vm);
+            m_valid = true;
+        } catch (std::exception &e) {
+            std::cout << "error: " << e.what() << std::endl << std::endl;
+            m_valid = false;
+        }
+
+        // Make sure we close up; don't rely on ifs destructor
+        ifs.close();
+    }
+
+    template <typename T>
+    program_options &add_required_option(const std::string &name,
+                                         std::string help)
+    {
+        help.append(" (required)");
+        m_desc.add_options()(name.c_str(), boost::program_options::value<T>(),
+                             help.c_str());
+        m_required.emplace_back(name);
+        return *this;
     }
 
     template <typename T>
@@ -100,7 +148,10 @@ public:
 
     const std::string usage() const
     {
-        return "usage: " + m_executable + " [-h] [-d]";
+        std::string out("usage: " + m_executable + " [-hvxd] [--log arg]");
+        for (const auto &required : m_required)
+            out.append(" --" + required + " arg");
+        return out;
     }
 
     operator bool() const
@@ -130,6 +181,8 @@ private:
 
     boost::program_options::variables_map m_vm;
     boost::program_options::options_description m_desc;
+
+    std::vector<std::string> m_required;
 
     friend std::ostream &operator<<(std::ostream &os,
                                     const ns::program_options &opt)
