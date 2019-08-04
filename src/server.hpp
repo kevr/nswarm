@@ -79,12 +79,14 @@ public:
         , m_context(ssl::context::sslv23)
         , m_acceptor(*m_io_ptr, tcp::endpoint(tcp::v4(), port))
     {
+        logi("using port ", port);
     }
 
     tcp_server(io_service &io, unsigned short port) noexcept
         : m_context(ssl::context::sslv23)
         , m_acceptor(io, tcp::endpoint(tcp::v4(), port))
     {
+        logi("using port ", port);
     }
 
     virtual ~tcp_server() = default;
@@ -122,6 +124,7 @@ public:
 
     void run()
     {
+        logi("accepting new connections");
         m_acceptor.listen();
         try_accept();
         if (m_io_ptr)

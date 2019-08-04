@@ -198,22 +198,22 @@ static detail::logstream &cout = detail::logstream::instance();
 static inline const std::string p_secret_log_addr = "";
 
 #define logi(...)                                                              \
-    ns::cout.info(::basename((char *)__FILE__), '(', __LINE__, ") ",           \
-                  p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] "    \
+    ns::cout.info(::basename((char *)__FILE__), '(', __LINE__, ")",            \
+                  p_secret_log_addr.size() ? " [" + p_secret_log_addr + "]"    \
                                            : "",                               \
-                  __func__, "(): ", __VA_ARGS__);
+                  ": ", __VA_ARGS__);
 
 #define logd(...)                                                              \
-    ns::cout.debug(::basename((char *)__FILE__), '(', __LINE__, ") ",          \
-                   p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] "   \
+    ns::cout.debug(::basename((char *)__FILE__), '(', __LINE__, ")",           \
+                   p_secret_log_addr.size() ? " [" + p_secret_log_addr + "]"   \
                                             : "",                              \
-                   __func__, "(): ", __VA_ARGS__);
+                   ": ", __VA_ARGS__);
 
 #define loge(...)                                                              \
-    ns::cout.error(::basename((char *)__FILE__), '(', __LINE__, ") ",          \
-                   p_secret_log_addr.size() ? "[" + p_secret_log_addr + "] "   \
+    ns::cout.error(::basename((char *)__FILE__), '(', __LINE__, ")",           \
+                   p_secret_log_addr.size() ? " [" + p_secret_log_addr + "]"   \
                                             : "",                              \
-                   __func__, "(): ", __VA_ARGS__);
+                   ": ", __VA_ARGS__);
 
 const std::string hexify(unsigned long value)
 {
