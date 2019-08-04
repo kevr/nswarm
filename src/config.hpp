@@ -10,6 +10,7 @@
 #ifndef NS_CONFIG_HPP
 #define NS_CONFIG_HPP
 
+#include <nswarm/logging.hpp>
 #include <nswarm/util.hpp>
 
 // c++ standard library
@@ -17,6 +18,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -68,13 +70,21 @@ public:
             m_valid = false;
         }
 
+        logi("Options:");
+        for (auto &kv : m_vm) {
+            std::string s = kv.second.as<std::string>();
+            if (m_required.find(kv.first) == m_required.end() && s == "")
+                s = "true";
+            logi("    ", kv.first, " = ", s);
+        }
+
         for (const auto &required : m_required) {
             if (!exists(required)) {
                 std::cout << "error: required key missing '" << required << "'"
                           << std::endl
                           << std::endl;
                 m_valid = false;
-                break;
+                return;
             }
         }
     }
@@ -110,7 +120,7 @@ public:
         help.append(" (required)");
         m_desc.add_options()(name.c_str(), boost::program_options::value<T>(),
                              help.c_str());
-        m_required.emplace_back(name);
+        m_required.emplace(name);
         return *this;
     }
 
@@ -182,7 +192,7 @@ private:
     boost::program_options::variables_map m_vm;
     boost::program_options::options_description m_desc;
 
-    std::vector<std::string> m_required;
+    std::set<std::string> m_required;
 
     friend std::ostream &operator<<(std::ostream &os,
                                     const ns::program_options &opt)
@@ -191,6 +201,16 @@ private:
         return os;
     }
 };
+
+template <typename... Args>
+inline void parse_configs(ns::program_options &opt, Args &&... args)
+{
+    auto configs = util::any_file(std::forward<Args>(args)...);
+    for (const auto &config : configs) {
+        opt.parse_config(config);
+        logi("loaded configuration file: ", config);
+    }
+}
 
 }; // namespace ns
 

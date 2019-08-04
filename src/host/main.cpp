@@ -36,14 +36,7 @@ int main(int argc, const char *argv[])
 
     std::string home_config(getenv("HOME"));
     home_config.append("/.nswarm-host.conf");
-
-    // Search through all common config file paths, and load them
-    // in priority /etc, then /home
-    auto configs = ns::util::any_file(home_config, "/etc/nswarm-host.conf");
-    for (auto &config : configs) {
-        opt.parse_config(config);
-        logi("loaded configuration file: ", config);
-    }
+    parse_configs(opt, home_config, "/etc/nswarm-host.conf");
 
     opt.parse(argc, argv);
 
@@ -80,7 +73,7 @@ int main(int argc, const char *argv[])
     if (opt.exists("daemon")) {
         // daemon(change dir to /, don't change stdout/stderr)
         if (daemon(0, 1) == -1) {
-            loge("daemon failed, errno: ", errno);
+            loge("daemon(0, 1) failed, errno: ", errno);
             return 1;
         }
     }
