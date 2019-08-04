@@ -694,17 +694,17 @@ T to_enum(IntType e)
 
 inline net::error::type to_error(uint8_t e)
 {
-    return static_cast<net::error::type>(e);
+    return to_enum<net::error::type>(e);
 }
 
 inline net::action::type to_action(uint8_t e)
 {
-    return static_cast<net::action::type>(e);
+    return to_enum<net::action::type>(e);
 }
 
 inline net::message::type to_type(uint16_t e)
 {
-    return static_cast<net::message::type>(e);
+    return to_enum<net::message::type>(e);
 }
 
 }; // namespace ns
