@@ -39,7 +39,7 @@ int main(int argc, const char *argv[])
 
     // Search through all common config file paths, and load them
     // in priority /etc, then /home
-    auto configs = ns::util::any_file("/etc/nswarm-host.conf", home_config);
+    auto configs = ns::util::any_file(home_config, "/etc/nswarm-host.conf");
     for (auto &config : configs) {
         opt.parse_config(config);
         logi("loaded configuration file: ", config);
@@ -90,11 +90,13 @@ int main(int argc, const char *argv[])
 
     // Begin real program logic
     logi(opt.name(), " started");
-    ns::host::daemon daemon;
-    daemon.use_node_certificate("cert.crt", "cert.key");
-    daemon.use_node_auth_key("abcd");
-    daemon.run();
 
-    // This needs to go into a run loop waiting for the server to quit
-    return 0;
+    ns::host::daemon daemon;
+
+    // Configure daemon
+    daemon.use_node_certificate(opt.get<std::string>("node-cert"),
+                                opt.get<std::string>("node-cert-key"));
+    daemon.use_node_auth_key(opt.get<std::string>("node-auth-key"));
+
+    return daemon.run();
 }

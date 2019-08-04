@@ -37,13 +37,14 @@ public:
         m_node_server.set_auth_key(key);
     }
 
-    void run()
+    int run()
     {
         m_node_server.run();
         logd("node server running");
 
         // Run shared io_service
         m_io.run();
+        return 0;
     }
 };
 
