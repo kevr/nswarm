@@ -8,6 +8,8 @@
  * All Rights Reserved
  **/
 #include "config.hpp"
+#include "host/daemon.hpp"
+
 #include <errno.h>
 #include <nswarm/logging.hpp>
 #include <string>
@@ -38,8 +40,10 @@ int main(int argc, const char *argv[])
     // Search through all common config file paths, and load them
     // in priority /etc, then /home
     auto configs = ns::util::any_file("/etc/nswarm-host.conf", home_config);
-    for (auto &config : configs)
+    for (auto &config : configs) {
         opt.parse_config(config);
+        logi("loaded configuration file: ", config);
+    }
 
     opt.parse(argc, argv);
 
@@ -86,6 +90,10 @@ int main(int argc, const char *argv[])
 
     // Begin real program logic
     logi(opt.name(), " started");
+    ns::host::daemon daemon;
+    daemon.use_node_certificate("cert.crt", "cert.key");
+    daemon.use_node_auth_key("abcd");
+    daemon.run();
 
     // This needs to go into a run loop waiting for the server to quit
     return 0;
