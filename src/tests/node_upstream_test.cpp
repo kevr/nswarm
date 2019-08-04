@@ -64,16 +64,16 @@ TEST_F(node_upstream_test, task_response)
     ns::wait_until([&] {
         return upstream->authenticated();
     });
-    upstream->respond("taskUUID", ns::task_type::emit::value,
-                      std::vector<std::string>());
+    // upstream->respond("taskUUID", net::task::event,
+    // std::vector<std::string>());
 
-    auto task = ns::task_type::deduce(ns::task_type::emit::value);
+    auto task = net::task::deduce(net::task::event);
     ns::match(
         task,
-        [](ns::task_type::call) {
+        [](net::task::tag::call) {
             logi("call task deduced");
         },
-        [](ns::task_type::emit) {
+        [](net::task::tag::event) {
             logi("emit task deduced");
         },
         [](auto &&) {

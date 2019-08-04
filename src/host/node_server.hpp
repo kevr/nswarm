@@ -6,8 +6,8 @@
  * Copyright (c) 2019 Kevin Morris
  * All Rights Reserved.
  **/
-#ifndef NS_HOST_NODE_SERVER
-#define NS_HOST_NODE_SERVER
+#ifndef NS_HOST_NODE_SERVER_HPP
+#define NS_HOST_NODE_SERVER_HPP
 
 #include "server.hpp"
 #include <nswarm/auth.hpp>
@@ -39,7 +39,7 @@ private:
 };
 
 class node_server : public tcp_server<node_connection>,
-                    protected protocol<node_connection, ns::data>
+                    protected protocol<node_connection, json_message>
 {
 public:
     using tcp_server::tcp_server;
@@ -69,12 +69,12 @@ public:
         on_auth([this](auto c, auto msg) -> void {
             // This is really fucked up. We need to fix this data type mess.
             logi("on_auth invoked, authenticating against: ", msg.get_string());
-            auth_request<auth_type::key> auth;
+            net::auth auth;
 
             bool authenticated = false;
             ns::json json;
             try {
-                auth = make_data<auth_request<auth_type::key>>(msg);
+                auth = net::auth(msg);
                 authenticated = c->authenticate(auth.key());
                 json = ns::json(auth.get_json());
             } catch (ns::json::exception &e) {
@@ -84,8 +84,9 @@ public:
             }
 
             json["data"] = authenticated;
+            auth.update(json);
 
-            c->send(ns::auth_response<auth_type::key>(json));
+            c->send(auth);
             if (!authenticated)
                 c->close();
         })
@@ -125,9 +126,9 @@ public:
             .on_read([this](auto client, auto msg) {
                 // When we read from a node, use m_proto to decide what to do.i
                 try {
-                    this->call(msg.type(), client, msg);
+                    this->call(msg.get_type(), client, msg);
                 } catch (std::exception &e) {
-                    auto type = ns::data_value_string(msg.type());
+                    auto type = ns::data_value_string(msg.get_type());
                     loge(
                         "exception thrown while calling protocol method type [",
                         type, "]: ", e.what());
@@ -166,4 +167,4 @@ private:
 }; // namespace host
 }; // namespace ns
 
-#endif // NS_HOST_NODE_SERVER
+#endif // NS_HOST_NODE_SERVER_HPP

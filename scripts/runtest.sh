@@ -3,12 +3,15 @@
 # Run a specific selection of tests, or all of them.
 # Stop on the first failed test.
 
-testCount=$(find . -type f -name '*_test.cpp' | wc -l)
+testCount=$(find ../src -type f -name '*_test.cpp' | wc -l)
 realCount=$(find . -type f -name '*_test' | wc -l)
 
 if [[ $testCount -ne $realCount ]]; then
     echo
     echo "Not all tests were compiled into binaries."
+    echo "Found: ${realCount}"
+    echo "Test sources: ${testCount}"
+
     echo 'Run `make all` to recompile.'
     echo
     exit 1

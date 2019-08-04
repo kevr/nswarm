@@ -1,9 +1,11 @@
-#include <nswarm/client.hpp>
 #include "host/node_server.hpp"
-#include <nswarm/logging.hpp>
 #include "memory.hpp"
 #include <gtest/gtest.h>
+#include <nswarm/client.hpp>
+#include <nswarm/logging.hpp>
 #include <string>
+
+using namespace ns;
 
 class node_server_test : public ::testing::Test
 {
@@ -64,10 +66,7 @@ TEST_F(node_server_test, server_denies_auth)
         ->on_connect([this](auto c) {
             EXPECT_EQ(m_server->count(), 1);
             logi("connected to ", c->remote_host(), ":", c->remote_port());
-            uint64_t header = ns::serialize_header(
-                ns::data_type::auth::value, ns::action_type::request::value, 0);
-            ns::data x(header);
-            c->send(x);
+            c->send(net::make_auth_request(ns::json{{"key", "abcd"}}));
         })
         .on_close([this](auto c) {
             logi("closed");

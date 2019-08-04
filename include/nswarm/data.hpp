@@ -111,17 +111,20 @@ struct error {
     // Variant tags
     struct tag {
         struct none {
+            using object = error;
             static constexpr error::type type = error::type::none;
             static constexpr const char *const human = "error::type::none";
         };
 
         // set means that an error exists.
         struct set {
+            using object = error;
             static constexpr error::type type = error::type::set;
             static constexpr const char *const human = "error::type::set";
         };
 
         struct bad {
+            using object = error;
             static constexpr error::type type = error::type::bad;
             static constexpr const char *const human = "error::type::bad";
         };
@@ -161,14 +164,17 @@ struct action {
 
     struct tag {
         struct request {
+            using object = action;
             static constexpr action::type type = action::type::request;
             static constexpr const char *const human = "action::type::request";
         };
         struct response {
+            using object = action;
             static constexpr action::type type = action::type::response;
             static constexpr const char *const human = "action::type::response";
         };
         struct bad {
+            using object = action;
             static constexpr action::type type = action::type::bad;
             static constexpr const char *const human = "action::type::bad";
         };
@@ -197,9 +203,6 @@ struct action {
 };
 
 // Namespace this class to avoid conflicts
-namespace impl
-{
-
 class message
 {
 protected:
@@ -219,24 +222,29 @@ public: // Some constant structure data
     // Variant tags
     struct tag {
         struct auth {
+            using object = message;
             static constexpr message::type type = message::type::auth;
             static constexpr const char *const human = "message::type::auth";
         };
         struct implement {
+            using object = message;
             static constexpr message::type type = message::type::implement;
             static constexpr const char *const human =
                 "message::type::implement";
         };
         struct subscribe {
+            using object = message;
             static constexpr message::type type = message::type::subscribe;
             static constexpr const char *const human =
                 "message::type::subscribe";
         };
         struct task {
+            using object = message;
             static constexpr message::type type = message::type::task;
             static constexpr const char *const human = "message::type::task";
         };
         struct bad {
+            using object = message;
             static constexpr message::type type = message::type::bad;
             static constexpr const char *const human = "message::type::bad";
         };
@@ -306,6 +314,11 @@ public: // Initialization constructors
     {
     }
 
+    void update(uint64_t bits)
+    {
+        m_header = net::header(bits);
+    }
+
     // Provide three update overloads for different situations.
     // Messages can be partially correct while we have not yet
     // received payload data.
@@ -367,10 +380,12 @@ public:
     {
         return data();
     }
-};
-}; // namespace impl
 
-using message = impl::message;
+    const uint32_t size() const
+    {
+        return head().size();
+    }
+};
 
 class json_message : public net::message
 {
@@ -430,7 +445,54 @@ public:
             m_json = json::parse(m_data);
         return json();
     }
+
+    void read_header(std::istream &is)
+    {
+        uint64_t head{0};
+        is.read((char *)&head, sizeof(uint64_t));
+        update(head);
+    }
+
+    void read_data(std::istream &is)
+    {
+        std::size_t size = m_header.size();
+        std::string buf(size, '\0');
+        is.read(&buf[0], size);
+        update(buf);
+    }
 };
+
+#define LAYER_CONSTRUCTOR(obj, name)                                           \
+    obj(const obj &o)                                                          \
+        : json_message(o)                                                      \
+    {                                                                          \
+        m_##name = o.m_##name;                                                 \
+    }                                                                          \
+    obj(obj &&o)                                                               \
+        : json_message(std::move(o))                                           \
+    {                                                                          \
+        m_##name = std::move(o.m_##name);                                      \
+    }                                                                          \
+    obj(const json_message &js)                                                \
+        : json_message(js)                                                     \
+    {                                                                          \
+        m_##name = get_json().at(#name);                                       \
+    }                                                                          \
+    obj(json_message &&js)                                                     \
+        : json_message(std::move(js))                                          \
+    {                                                                          \
+        m_##name = get_json().at(#name);                                       \
+    }                                                                          \
+    void operator=(obj o)                                                      \
+    {                                                                          \
+        json_message::operator=(std::move(o));                                 \
+        m_##name = std::move(o.m_##name);                                      \
+    }                                                                          \
+    void operator=(json_message m)                                             \
+    {                                                                          \
+        json_message::operator=(std::move(m));                                 \
+        m_##name = get_json().at(#name);                                       \
+    }
 
 }; // namespace net
 
@@ -552,264 +614,37 @@ inline uint64_t serialize_header(uint16_t a, uint16_t ba, uint16_t bb,
     return serialize_header(a, make_flags(ba, bb, error), c);
 }
 
-// T: Derivative class
-// T is used to represent a higher level of data, for example, authentication.
-// T should implement the following public functions for initialization:
-//     void prepare()
-//
-template <typename T>
-class basic_data
-{
-public:
-    basic_data() = default;
-
-    basic_data(uint64_t header, const json &js) noexcept
-        : basic_data(header, js.dump())
-    {
-        tracevalue();
-        logd("basic_data created with: ", std::bitset<64>(this->header()),
-             ", data: ", this->get_string());
-    }
-
-    basic_data(uint64_t header, std::string data_value = std::string()) noexcept
-        : m_data(std::move(data_value))
-    {
-        tracevalue();
-        m_type = (uint16_t)(header >> 48);
-        m_flags = (uint16_t)(header >> 32);
-        m_size = (uint32_t)header;
-        logd("basic_data created with {", m_type, ", ", m_flags, ", ", m_size,
-             "}, real basic_data size = ", m_data.size());
-    }
-
-    basic_data(const basic_data &other) noexcept
-        : m_type(other.m_type)
-        , m_flags(other.m_flags)
-        , m_size(other.m_size)
-        , m_data(other.m_data)
-        , m_json(other.m_json)
-    {
-        tracecopy();
-    }
-
-    template <typename U>
-    basic_data(const basic_data<U> &other) noexcept
-        : m_type(other.m_type)
-        , m_flags(other.m_flags)
-        , m_size(other.m_size)
-        , m_data(other.m_data)
-        , m_json(other.m_json)
-    {
-        tracecopy();
-    }
-
-    T &operator=(const basic_data &other) noexcept
-    {
-        tracecopy();
-        m_type = other.m_type;
-        m_flags = other.m_flags;
-        m_size = other.m_size;
-        m_data = other.m_data;
-        m_json = other.m_json;
-        auto *ptr = static_cast<T *>(this);
-        ptr->prepare();
-        return *ptr;
-    }
-
-    basic_data(basic_data &&other) noexcept
-        : m_type(other.m_type)
-        , m_flags(other.m_flags)
-        , m_size(other.m_size)
-        , m_data(std::move(other.m_data))
-        , m_json(std::move(other.m_json))
-    {
-        tracemove();
-    }
-
-    template <typename U>
-    basic_data(basic_data<U> &&other) noexcept
-        : m_type(other.m_type)
-        , m_flags(other.m_flags)
-        , m_size(other.m_size)
-        , m_data(std::move(other.m_data))
-        , m_json(std::move(other.m_json))
-    {
-        tracemove();
-    }
-
-    T &operator=(basic_data &&other) noexcept
-    {
-        tracemove();
-        m_type = other.m_type;
-        m_flags = other.m_flags;
-        m_size = other.m_size;
-        m_data = std::move(other.m_data);
-        m_json = std::move(other.m_json);
-        auto *ptr = static_cast<T *>(this);
-        ptr->prepare();
-        return *ptr;
-    }
-
-    void read_header(std::istream &is)
-    {
-        uint64_t header = 0;
-        is.read(reinterpret_cast<char *>(&header), sizeof(uint64_t));
-        std::tie(m_type, m_flags, m_size) = deserialize_header(header);
-        logd("data updated with header data = { ", m_type, ", ", m_flags, ", ",
-             m_size, " }");
-    }
-
-    void read_data(std::istream &is)
-    {
-        std::string value(m_size, '\0');
-        is.read(&value[0], m_size);
-        m_data = std::move(value);
-        logd("data updated with real data size = ", m_data.size());
-    }
-
-    const uint64_t header() const noexcept
-    {
-        return serialize_header(m_type, m_flags, m_size);
-    }
-
-    // These three bitmask functions mask against the total
-    // of their type, with their bits positioned at the
-    // lower end of the result from the bitwise shift.
-    const value::data_value type() const noexcept
-    {
-        return static_cast<value::data_value>(m_type);
-    }
-
-    // Actually 24 bytes of data
-    const uint16_t params() const noexcept
-    {
-        // the left-most 15 bits
-        return m_flags >> 2;
-    }
-
-    // error field
-    const bool error() const noexcept
-    {
-        // Shift over the error bit and mask it
-        return (m_flags >> 1) & 1;
-    }
-
-    const value::action_value action() const noexcept
-    {
-        // Mask the action bit
-        return static_cast<value::action_value>(m_flags & 1);
-    }
-
-    const uint16_t flags() const noexcept
-    {
-        return m_flags;
-    }
-
-    const uint32_t size() const noexcept
-    {
-        return m_size;
-    }
-
-    const std::string &get_string() const noexcept
-    {
-        return m_data;
-    }
-
-    const json &get_json()
-    {
-        if (!m_json.size())
-            m_json = json::parse(m_data);
-        return m_json;
-    }
-
-protected:
-    void set_size(uint32_t size)
-    {
-        trace();
-        m_size = size;
-    }
-
-protected:
-    uint16_t m_type = 0;
-    uint16_t m_flags = 0;
-    uint32_t m_size = 0;
-    std::string m_data;
-
-    json m_json;
-
-    template <typename U>
-    friend class basic_data;
-};
-
-// L0 data: This L0 data is protocol unaware
-class data : public basic_data<data>
-{
-public:
-    using basic_data::basic_data;
-
-    void prepare()
-    {
-        // Do nothing here; noop
-    }
-
-protected:
-    // data_object<T> shall be a class that can manipulate
-    // moved from objects
-    template <typename T>
-    friend class data_object;
-};
-
-// L1 data: This L1 data is data type aware
-template <typename T>
-class data_object : public basic_data<T>
-{
-public:
-    using basic_data<T>::basic_data;
-};
-
 // L2 data: L2 data shall be derivatives of data_object
 //          L2 objects are protocol aware
 
-// Here, make and prepare a data_object:
-// void DataType::prepare() is required to be implemented.
-template <typename DataType, typename... Args>
-DataType make_data(Args &&... args)
+template <typename T>
+std::string string_cast_type(const typename T::type type)
 {
-    auto data = DataType(std::forward<Args>(args)...);
-    data.prepare();
-    return data;
+    return ns::match(T::deduce(type), [](auto e) {
+        return decltype(e)::human;
+    });
 }
 
-inline std::string data_value_string(const value::data_value type)
+inline std::string data_value_string(const net::message::type type)
 {
-    static const std::map<value::data_value, std::string> types{
-        {value::data_value::auth, "data_value::auth"},
-        {value::data_value::implement, "data_value::implement"},
-        {value::data_value::subscribe, "data_value::subscribe"},
-        {value::data_value::task, "data_value::task"},
-    };
-    return types.at(type);
+    return string_cast_type<net::message>(type);
 }
 
-inline std::string action_value_string(const value::action_value type)
+inline std::string action_value_string(const net::action::type type)
 {
-    static const std::map<value::action_value, std::string> types{
-        {value::action_value::request, "action_value::request"},
-        {value::action_value::response, "action_value::response"},
-    };
-    return types.at(type);
+    return string_cast_type<net::action>(type);
 }
 }; // namespace ns
 
 inline std::stringstream &operator<<(std::stringstream &os,
-                                     const ns::value::data_value type)
+                                     const ns::net::message::type type)
 {
     os << ns::data_value_string(type);
     return os;
 }
 
 inline std::stringstream &operator<<(std::stringstream &os,
-                                     const ns::value::action_value type)
+                                     const ns::net::action::type type)
 {
     os << ns::action_value_string(type);
     return os;
@@ -848,6 +683,14 @@ inline bool operator==(uint16_t lhs, ns::net::message::type rhs)
 
 namespace ns
 {
+
+// typename T: An enum type
+// typename IntType: One of uint8_t, uint16_t, uint32_t
+template <typename T, typename IntType>
+T to_enum(IntType e)
+{
+    return static_cast<T>(e);
+}
 
 inline net::error::type to_error(uint8_t e)
 {

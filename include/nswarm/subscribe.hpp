@@ -6,74 +6,76 @@
 namespace ns
 {
 
-// A structure that represents an event subscription
-// by a node application.
-template <typename A>
-class subscribe : public data_object<subscribe<A>>
+namespace net
+{
+
+// Represents net::message::subscribe data.
+class subscription : public json_message
 {
     std::string m_event;
 
-    using data_object_t = data_object<subscribe<A>>;
-
 public:
-    using data_object_t::data_object;
+    using json_message::json_message;
 
-    // Allow construction with just an event name.
-    // This can be used by the requester to make a fresh
-    // subscribe data object.
-    subscribe(const std::string &event)
-        : data_object_t(
-              serialize_header(data_type::subscribe::value, 0, A::value, 0))
-    {
-        this->m_json["event"] = event;
-        this->m_data = this->m_json.dump();
-        this->m_event = event;
-        this->set_size(this->get_string().size());
-    }
-
-    // Provide all possible combinations of subscribe<A>
-    template <typename U>
-    subscribe(const subscribe<U> &other)
-        : data_object_t(other)
-    {
-        prepare();
-    }
-
-    template <typename U>
-    subscribe &operator=(const subscribe<U> &other)
-    {
-        data_object_t::operator=(other);
-        return *this;
-    }
-
-    template <typename U>
-    subscribe(subscribe<U> &&other)
-        : data_object_t(std::move(other))
-    {
-        prepare();
-    }
-
-    template <typename U>
-    subscribe &operator=(subscribe<U> &&other)
-    {
-        data_object_t::operator=(std::move(other));
-        return *this;
-    }
+    // Include overloads that sync m_event
+    LAYER_CONSTRUCTOR(subscription, event)
 
     const std::string &event() const
     {
         return m_event;
     }
 
-    void prepare()
-    {
-        m_event = this->get_json().at("event");
-    }
+private:
+    template <action::type>
+    friend subscription make_subscription(const std::string &);
 };
 
-using subscribe_request = subscribe<action_type::request>;
-using subscribe_response = subscribe<action_type::response>;
+template <action::type action_t>
+subscription make_subscription(const std::string &event)
+{
+    ns::json js{{"event", event}};
+    auto impl =
+        subscription(net::header(message::type::implement, 0, error::type::none,
+                                 action_t, js.dump().size()),
+                     js);
+    impl.m_event = impl.get_json().at("event");
+    return impl;
+}
 
+template <typename... Args>
+subscription make_subscription_request(Args &&... args)
+{
+    return make_subscription<action::type::request>(
+        std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+subscription make_subscription_response(Args &&... args)
+{
+    return make_subscription<action::type::response>(
+        std::forward<Args>(args)...);
+}
+
+subscription make_subscription_error(const std::string &event,
+                                     const std::string &error)
+{
+    // Create a normal impl
+    auto impl = make_subscription<action::type::response>(event);
+
+    // Then, set the error field in json...
+    auto js = impl.get_json();
+    js["error"] = error;
+    auto size = js.dump().size(); // acquiire new size
+
+    // And update the header with error::type::set and the new json
+    impl.update(net::header(impl.get_type(), impl.head().args(),
+                            error::type::set, impl.get_action(), size),
+                std::move(js));
+
+    return impl;
+}
+
+}; // namespace net
 }; // namespace ns
 
 #endif // NS_SUBSCRIBE_HPP

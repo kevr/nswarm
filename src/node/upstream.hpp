@@ -22,7 +22,8 @@ namespace ns
 namespace node
 {
 
-class upstream : public client<upstream>, protected protocol<upstream, ns::data>
+class upstream : public client<upstream>,
+                 protected protocol<upstream, json_message>
 {
 public:
     // We require upstream to be bound to the service server's io
@@ -38,18 +39,21 @@ public:
 
     void auth(const std::string &key)
     {
-        send(auth_request<auth_type::key>(key));
+        ns::json js{{"key", key}};
+        send(net::make_auth_request(js));
     }
 
     // construct implement message
     void implement(const std::string &method)
     {
-        send(implement_request(method));
+        // implementation takes a method
+        send(net::make_impl_request(method));
     }
 
     void subscribe(const std::string &event)
     {
-        send(subscribe_request(event));
+        ns::json js{{"event", event}};
+        send(net::make_subscription_request(js));
     }
 
     //
@@ -64,20 +68,18 @@ public:
     // respond("1234", "hello!");
     //
     template <typename T>
-    void respond(const std::string &task_id, value::task_value task_t,
+    void respond(const std::string &task_id, net::task::type task_t,
                  const T &response)
     {
         json js;
         js["task_id"] = task_id;
         js["data"] = response;
 
-        auto json_str = js.dump();
-        auto header = serialize_header(
-            data_type::task::value,
-            make_flags(task_t, action_type::response::value), json_str.size());
-
-        auto data = ns::data(header, json_str);
-        send(data);
+        auto data = match(net::task::deduce(task_t), [&](auto e) {
+            return net::make_task_response<decltype(e)::type>(task_id);
+        });
+        data.update(js);
+        send(std::move(data));
     }
 
     virtual ~upstream() = default;
@@ -162,7 +164,7 @@ private:
                          msg.type(), "; message: ", e.what());
                 }
                 */
-                this->call(msg.type(), client, msg);
+                this->call(msg.get_type(), client, msg);
             })
             .on_close([this](auto client) {
                 // Automatically try to reconnect

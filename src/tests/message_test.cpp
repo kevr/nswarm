@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <nswarm/auth.hpp>
 #include <nswarm/data.hpp>
 #include <nswarm/task.hpp>
 
@@ -25,8 +26,7 @@ TEST(message_test, json_message)
     data["key"] = "test";
 
     {
-        json tmp = data;
-        js.update(std::move(tmp));
+        js.update(data);
         EXPECT_EQ(js.head().size(), data.dump().size());
     }
 
@@ -110,3 +110,57 @@ TEST(message_test, task_test)
     EXPECT_TRUE(task.has_error());
 }
 
+TEST(message_test, task_dispatcher)
+{
+    net::task_dispatcher dispatcher;
+
+    auto t = net::make_task_request<net::task::call>("taskUUID");
+    logi("Task ID: ", t.task_id());
+    dispatcher.create(t, [&](net::task t) {
+        logi("on_response called: ", t.task_id());
+    });
+
+    t = net::make_task_response<net::task::call>("taskUUID");
+    logi("Task ID: ", t.task_id());
+    dispatcher.respond(t);
+}
+
+TEST(message_test, auth_test)
+{
+    auto print = [](auto &auth) {
+        logi("Created auth with key: ", auth.key());
+
+        match(net::error::deduce(auth.get_error()), [](auto e) {
+            logi("Error state: ", decltype(e)::human);
+        });
+        match(net::message::deduce(auth.get_type()), [](auto t) {
+            logi("Type: ", decltype(t)::human);
+        });
+        match(net::action::deduce(auth.get_action()), [](auto a) {
+            logi("Action: ", decltype(a)::human);
+        });
+    };
+
+    // Create an event auth request
+    auto auth =
+        net::make_auth_request(ns::json{{"key", "authUUIDEventRequest"}});
+    print(auth);
+
+    // Create a call auth request
+    auth = net::make_auth_request(ns::json{{"key", "authUUIDCallRequest"}});
+    print(auth);
+
+    // Create a call error auth response
+    auth = net::make_auth_error(ns::json{{"key", "someKey"}}, "authUUIDError");
+    print(auth);
+
+    EXPECT_TRUE(auth.has_error());
+
+    // Create a call error auth response with a message
+    auth = net::make_auth_error(ns::json{{"key", "someKey"}},
+                                "You did nothing wrong at all.");
+    print(auth);
+    logi("Error JSON: ", auth.data());
+
+    EXPECT_TRUE(auth.has_error());
+}

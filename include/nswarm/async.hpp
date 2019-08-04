@@ -24,7 +24,8 @@ namespace ns
 {
 
 template <typename T>
-using async_read_function = std::function<void(std::shared_ptr<T>, data)>;
+using async_read_function =
+    std::function<void(std::shared_ptr<T>, json_message)>;
 
 template <typename T>
 using async_connect_function = std::function<void(std::shared_ptr<T>)>;
@@ -184,17 +185,23 @@ public:
                 std::to_string(std::numeric_limits<uint32_t>::max()));
 
         // We should send a valid header no matter what.
-        uint64_t header = data.header();
+        uint64_t header = data.head().value();
         m_os.write(reinterpret_cast<char *>(&header), sizeof(uint64_t));
 
         // If data was provided, write it to the stream
-        if (data.size()) {
-            m_os.write(str.data(), data.size());
+        std::size_t sz(data.head().size());
+        if (sz != str.size()) {
+            loge("invalid header size compared to stored data: ", sz, " vs ",
+                 str.size());
+        }
+
+        if (sz > 0) {
+            m_os.write(str.data(), sz);
         }
 
         boost::asio::async_write(
             *m_socket, m_output,
-            boost::asio::transfer_exactly(data.size() + sizeof(data.header())),
+            boost::asio::transfer_exactly(data.size() + sizeof(uint64_t)),
             boost::bind(&T::async_on_write, this->shared_from_this(),
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
@@ -286,16 +293,31 @@ protected:
 
     void close() noexcept
     {
-        logd("close called, dispatching to io_service");
+        trace();
         boost::system::error_code ec; // No need to check, silently fail
         m_socket->shutdown(ec);       // ssl stream shutdown
+        if (ec) {
+            logd("error_code during socket shutdown: ", ec.message());
+        }
+
         m_socket->lowest_layer().close(ec);
+        if (ec) {
+            logd("error_code during socket close: ", ec.message());
+        }
     }
 
     void set_endpoint(const tcp::endpoint &ep)
     {
+        m_host = ep.address().to_v4().to_string();
+        m_port = std::to_string(ep.port());
+        logd("local_endpoint: ", m_host, ':', m_port);
+    }
+
+    void set_remote_endpoint(const tcp::endpoint &ep)
+    {
         m_remote_host = ep.address().to_v4().to_string();
         m_remote_port = std::to_string(ep.port());
+        logd("remote_endpoint: ", m_remote_host, ':', m_remote_port);
     }
 
 private:
@@ -348,7 +370,8 @@ private:
         if (!ec) {
             logd("handshake succeeded");
 
-            set_endpoint(socket().lowest_layer().remote_endpoint());
+            set_endpoint(socket().lowest_layer().local_endpoint());
+            set_remote_endpoint(socket().lowest_layer().remote_endpoint());
 
             if (this->has_connect())
                 this->call_connect(this->shared_from_this());
@@ -365,32 +388,32 @@ private:
         trace();
 
         if (!ec) {
-
-            data x;
-            x.read_header(m_is);
+            json_message data;
+            data.read_header(m_is);
 
             logd("header received: ",
-                 std::bitset<sizeof(uint64_t) * 8>(x.header()));
+                 std::bitset<sizeof(uint64_t) * 8>(data.head().value()));
 
-            auto type = ns::data_value_string(x.type());
-            auto action = ns::action_value_string(x.action());
-            logd("deserialized header: type = ", type,
-                 ", params = ", x.params(), ", action = ", action,
-                 ", size = ", x.size());
+            const auto &head = data.head();
+            auto type = ns::data_value_string(data.get_type());
+            auto action = ns::action_value_string(data.get_action());
+            logd("deserialized header: type = ", type, ", args = ", head.args(),
+                 ", action = ", action, ", size = ", head.size());
 
-            if (x.size() > 0) {
+            if (data.head().size() > 0) {
                 boost::asio::async_read(
-                    *m_socket, m_input, boost::asio::transfer_exactly(x.size()),
+                    *m_socket, m_input,
+                    boost::asio::transfer_exactly(head.size()),
                     boost::bind(&T::async_on_read_data,
                                 this->shared_from_this(),
                                 boost::asio::placeholders::error,
                                 boost::asio::placeholders::bytes_transferred,
-                                std::move(x)));
+                                std::move(data)));
             } else {
                 // IMPORTANT: This is all wrong. We need better overrides for
                 // ns::data
                 if (this->has_read()) {
-                    this->call_read(this->shared_from_this(), std::move(x));
+                    this->call_read(this->shared_from_this(), std::move(data));
                 }
                 start_read();
             }
@@ -400,14 +423,18 @@ private:
     }
 
     void async_on_read_data(const boost::system::error_code &ec,
-                            std::size_t bytes, data x) noexcept
+                            std::size_t bytes, json_message data) noexcept
     {
         trace();
 
+        if ((std::size_t)data.head().size() != bytes) {
+            loge("mismatched data size: ", data.head().size(), " vs ", bytes);
+        }
+
         if (!ec) {
-            x.read_data(m_is);
+            data.read_data(m_is);
             if (this->has_read()) {
-                this->call_read(this->shared_from_this(), std::move(x));
+                this->call_read(this->shared_from_this(), std::move(data));
             }
 
             // Start reading again
@@ -453,6 +480,9 @@ private:
     std::ostream m_os{&m_output};
 
     std::unique_ptr<tcp_socket> m_socket;
+
+    std::string m_host;
+    std::string m_port;
 
     std::string m_remote_host;
     std::string m_remote_port;

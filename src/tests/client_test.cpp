@@ -1,8 +1,31 @@
+#include "server.hpp"
+#include <gtest/gtest.h>
 #include <nswarm/client.hpp>
 #include <nswarm/logging.hpp>
-#include <gtest/gtest.h>
 
-TEST(client_test, google_search)
+class client_test : public ::testing::Test
+{
+protected:
+    static void SetUpTestCase()
+    {
+        ns::set_trace_logging(true);
+    }
+
+    virtual void SetUp()
+    {
+        m_server.use_certificate("cert.crt", "cert.key");
+        m_server.start();
+    }
+
+    virtual void TearDown()
+    {
+        m_server.stop();
+    }
+
+    ns::tcp_server<ns::tcp_connection> m_server{6666};
+};
+
+TEST_F(client_test, google_search)
 {
     ns::set_debug_logging(true);
 
@@ -15,14 +38,18 @@ TEST(client_test, google_search)
                  client->remote_port());
             client->close();
         })
-        .on_read([](auto client, auto msg) { logd("Message received"); })
-        .on_close([](auto client) { logd("Client disconnected."); })
-        .run("www.google.com", "443");
+        .on_read([](auto client, auto msg) {
+            logd("Message received");
+        })
+        .on_close([](auto client) {
+            logd("Client disconnected.");
+        })
+        .run("localhost", "6666");
 
     io.run();
 }
 
-TEST(client_test, internal_io_service)
+TEST_F(client_test, internal_io_service)
 {
     ns::set_debug_logging(true);
 
@@ -34,13 +61,19 @@ TEST(client_test, internal_io_service)
                  client->remote_port());
             client->close();
         })
-        .on_read([](auto client, auto msg) { logd("Message received"); })
-        .on_close([](auto client) { logd("Client disconnected."); })
-        .on_error([](auto client, const auto &ec) { loge(ec.message()); })
-        .run("www.google.com", "443");
+        .on_read([](auto client, auto msg) {
+            logd("Message received");
+        })
+        .on_close([](auto client) {
+            logd("Client disconnected.");
+        })
+        .on_error([](auto client, const auto &ec) {
+            loge(ec.message());
+        })
+        .run("localhost", "6666");
 }
 
-TEST(client_test, two_shared_io_clients)
+TEST_F(client_test, two_shared_io_clients)
 {
     ns::set_debug_logging(true);
 
@@ -53,8 +86,12 @@ TEST(client_test, two_shared_io_clients)
                  client->remote_port());
             client->close();
         })
-        .on_read([](auto client, auto msg) { logd("Message received"); })
-        .on_close([](auto client) { logd("Client disconnected."); });
+        .on_read([](auto client, auto msg) {
+            logd("Message received");
+        })
+        .on_close([](auto client) {
+            logd("Client disconnected.");
+        });
 
     auto client2 = ns::make_tcp_client(io);
 
@@ -64,15 +101,19 @@ TEST(client_test, two_shared_io_clients)
                  client->remote_port());
             client->close();
         })
-        .on_read([](auto client, auto msg) { logd("Message2 received"); })
-        .on_close([](auto client) { logd("Client2 disconnected."); });
+        .on_read([](auto client, auto msg) {
+            logd("Message2 received");
+        })
+        .on_close([](auto client) {
+            logd("Client2 disconnected.");
+        });
 
-    client->run("www.google.com", "443");
-    client2->run("www.google.com", "443");
+    client->run("localhost", "6666");
+    client2->run("localhost", "6666");
     io.run();
 }
 
-TEST(client_test, unable_to_connect)
+TEST_F(client_test, invalid_host)
 {
     ns::set_debug_logging(true);
 
@@ -84,15 +125,19 @@ TEST(client_test, unable_to_connect)
                  client->remote_port());
             client->close();
         })
-        .on_read([](auto client, auto msg) { logd("Message received"); })
-        .on_close([](auto client) { logd("Client disconnected."); })
+        .on_read([](auto client, auto msg) {
+            logd("Message received");
+        })
+        .on_close([](auto client) {
+            logd("Client disconnected.");
+        })
         .on_error([](auto client, const auto &ec) {
             EXPECT_EQ(ec, boost::asio::error::host_not_found);
         })
         .run("googleboogle", "443");
 }
 
-TEST(client_test, invalid_port)
+TEST_F(client_test, invalid_port)
 {
     ns::set_debug_logging(true);
 
@@ -104,8 +149,12 @@ TEST(client_test, invalid_port)
                  client->remote_port());
             client->close();
         })
-        .on_read([](auto client, auto msg) { logd("Message received"); })
-        .on_close([](auto client) { logd("Client disconnected."); })
+        .on_read([](auto client, auto msg) {
+            logd("Message received");
+        })
+        .on_close([](auto client) {
+            logd("Client disconnected.");
+        })
         .on_error([](auto client, const auto &ec) {
             EXPECT_EQ(ec, boost::asio::error::service_not_found);
         })

@@ -10,11 +10,11 @@
 #ifndef NS_SERVER_HPP
 #define NS_SERVER_HPP
 
+#include <functional>
+#include <memory>
 #include <nswarm/async.hpp>
 #include <nswarm/logging.hpp>
 #include <nswarm/types.hpp>
-#include <functional>
-#include <memory>
 #include <thread>
 
 namespace ns
@@ -139,11 +139,13 @@ public:
             loge("start() called on a server with no on_accept provided");
 
         logd("starting thread");
-        m_thread = std::thread([this] { run(); });
+        m_thread = std::thread([this] {
+            run();
+        });
         // Purposely sleep this function for 1/4th of a second
         // to allow the thread to start up and begin accepting
         // clients.
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
         m_running = true;
     }
 
@@ -216,32 +218,31 @@ private:
 
             m_connections.exchange(m_connections.load() + 1);
 
+            // Bind all callbacks to our new connection
             if (this->has_connect())
                 client->on_connect(std::bind(
                     &tcp_server::template call_connect<std::shared_ptr<T>>,
                     this, std::placeholders::_1));
-
             if (this->has_read())
                 client->on_read(std::bind(
-                    &tcp_server::template call_read<std::shared_ptr<T>, data>,
+                    &tcp_server::template call_read<std::shared_ptr<T>,
+                                                    json_message>,
                     this, std::placeholders::_1, std::placeholders::_2));
-
             if (this->has_close())
                 client->on_close([this](auto c) {
                     m_connections.exchange(m_connections.load() - 1);
                     this->call_close(c);
                 });
-
             if (this->has_error())
                 client->on_error([this](auto c, const auto &ec) {
                     this->call_error(c, ec);
                 });
 
+            // If we're provided with an accept callback, run that
             if (has_accept())
                 call_accept(client); // client->run() should be called
                                      // in the accept function
-            else
-                m_running = true;
+            m_running = true;
             logd("connection accepted, but no callback was "
                  "provided");
 

@@ -15,11 +15,11 @@
 #ifndef NS_DISPATCHER_HPP
 #define NS_DISPATCHER_HPP
 
-#include <nswarm/data.hpp>
-#include <nswarm/task.hpp>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <nswarm/data.hpp>
+#include <nswarm/task.hpp>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -29,7 +29,8 @@ namespace ns
 {
 
 template <typename T>
-using async_task_function = std::function<void(std::shared_ptr<T>, data)>;
+using async_task_function =
+    std::function<void(std::shared_ptr<T>, net::json_message)>;
 
 template <typename T>
 class task_dispatcher
@@ -90,9 +91,10 @@ private:
 
     tuple pop_tuple(const std::string &task_id)
     {
-        auto task = m_tasks.at(task_id);
-        m_tasks.erase(m_tasks.find(task_id));
-        return std::make_tuple(task_id, task);
+        auto task = m_tasks.find(task_id);
+        auto tv = std::move(task->second);
+        m_tasks.erase(task);
+        return std::make_tuple(task_id, std::move(tv));
     }
 
 protected:
