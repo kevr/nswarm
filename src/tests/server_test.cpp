@@ -1,6 +1,8 @@
-#include <nswarm/client.hpp>
 #include "server.hpp"
 #include <gtest/gtest.h>
+#include <nswarm/client.hpp>
+
+using namespace ns;
 
 class server_test : public ::testing::Test
 {
@@ -27,9 +29,9 @@ protected:
                      client->remote_port());
             })
             .on_read([](auto client, auto data) {
-                EXPECT_EQ(data.type(), ns::data_type::auth::value);
-                EXPECT_EQ(data.size(), data.get_string().size());
-                logi("read data type: ", data.type());
+                EXPECT_EQ(data.get_type(), net::message::auth);
+                EXPECT_EQ(data.head().size(), data.get_string().size());
+                logi("read data type: ", data.get_type());
                 client->close();
             })
             .on_close([](auto client) {
@@ -47,7 +49,7 @@ protected:
         m_server->stop();
     }
 
-    std::shared_ptr<ns::tcp_server<ns::tcp_connection>> m_server;
+    std::shared_ptr<tcp_server<tcp_connection>> m_server;
 };
 
 TEST_F(server_test, server_accepts_client)
@@ -85,15 +87,14 @@ TEST_F(server_test, server_serializes_properly)
 
     // Connect to our m_server, and close the connection when we connect.
     // This will cause the run loop to stop and exit the function.
-    auto client = ns::make_tcp_client();
+    auto client = make_tcp_client();
     client
         ->on_connect([](auto c) {
             logi("client connected to ", c->remote_host(), ":",
                  c->remote_port());
-            ns::data x(ns::serialize_header(ns::data_type::auth::value,
-                                            ns::action_type::request::value,
-                                            0));
-            c->send(x);
+            net::json_message data(
+                serialize_header(net::message::auth, net::action::request, 0));
+            c->send(data);
         })
         .on_read([](auto client, auto data) {
             logi("read data");

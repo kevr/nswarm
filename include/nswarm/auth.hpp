@@ -17,6 +17,74 @@
 namespace ns
 {
 
+namespace net
+{
+
+class auth : public json_message
+{
+protected:
+    std::string m_key;
+
+public:
+    using json_message::json_message;
+
+    LAYER_CONSTRUCTOR(auth, key)
+
+    const std::string &key() const
+    {
+        return m_key;
+    }
+
+private:
+    template <action::type>
+    friend net::auth make_auth(ns::json);
+};
+
+template <action::type action_t>
+net::auth make_auth(ns::json js)
+{
+    const auto &str = js.dump();
+    auto a = net::auth(net::header(message::type::auth, 0, error::type::none,
+                                   action_t, str.size()),
+                       js);
+    a.m_key = a.get_json().at("key");
+    return a;
+}
+
+template <typename... Args>
+net::auth make_auth_request(Args &&... args)
+{
+    return make_auth<action::type::request>(std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+net::auth make_auth_response(Args &&... args)
+{
+    return make_auth<action::type::request>(std::forward<Args>(args)...);
+}
+
+inline net::auth make_auth_error(ns::json js)
+{
+    auto a = make_auth<action::type::response>(std::move(js));
+    a.update(net::header(a.get_type(), a.head().args(), error::type::set,
+                         a.get_action(), a.head().size()));
+    return a;
+}
+
+inline net::auth make_auth_error(const std::string &error)
+{
+    ns::json js{{"error", error}};
+    return make_auth_error(std::move(js));
+}
+
+inline net::auth make_auth_error(ns::json js, const std::string &error)
+{
+    js["error"] = error;
+    return make_auth_error(std::move(js));
+}
+
+}; // namespace net
+
 namespace value
 {
 
@@ -150,111 +218,6 @@ public:
 
 template <typename T>
 using auth_context = authentication::context<T>;
-
-// layer 1 data
-// T: auth_type
-// A: action_type
-template <typename T, typename A>
-class auth : public data_object<auth<T, A>>
-{
-    std::string m_key;
-
-    using auth_t = auth<T, A>;
-    using data_object_t = data_object<auth_t>;
-
-public:
-    // Derive base constructors
-    using data_object_t::data_object;
-
-    auth(const std::string &key)
-        : data_object_t(
-              serialize_header(data_type::auth::value, T::value, A::value, 0))
-    {
-        this->m_json["key"] = key;
-        this->m_data = this->m_json.dump();
-        this->set_size(this->m_data.size());
-    }
-
-    auth(const json &js)
-        : data_object_t(
-              serialize_header(data_type::auth::value, T::value, A::value, 0),
-              js)
-    {
-        this->set_size(this->get_string().size());
-        prepare();
-        logd("auth(json) constructor header: ", std::bitset<64>(this->header()),
-             ", data: ", this->get_string());
-    }
-
-    // We need to provide auth level constructors for preparation
-    // of internal member variables.
-    auth(const auth &other)
-        : data_object_t(other)
-    {
-        prepare();
-    }
-
-    auth &operator=(const auth &other)
-    {
-        data_object_t::operator=(other);
-        return *this;
-    }
-
-    auth(auth &&other)
-        : data_object_t(other)
-    {
-        prepare();
-    }
-
-    auth &operator=(auth &&other)
-    {
-        data_object_t::operator=(std::move(other));
-        return *this;
-    }
-
-    const std::string &key() const
-    {
-        return m_key;
-    }
-
-    value::auth_value params() const
-    {
-        return static_cast<value::auth_value>(data_object_t::params());
-    }
-
-    // We cannot call this in the base class constructor.
-    // It is UB: the base constructor is run before the derived.
-    //
-    // We will provide an adhoc free function for creating
-    // data_objects so that prepare will be done directly after constructed
-    void prepare()
-    {
-        logd("setting up");
-        parse_key();
-        logd("found key: '", m_key, "'");
-    }
-
-private:
-    const std::string &parse_key()
-    {
-        if (!m_key.size()) {
-            // If we can't parse it, we just have an empty key.
-            try {
-                m_key = this->get_json().at("key");
-            } catch (json::exception &e) {
-                loge(e.what());
-            }
-        }
-        return m_key;
-    }
-};
-
-// Convenient aliases
-template <typename T>
-using auth_request = auth<T, action_type::request>;
-
-template <typename T>
-using auth_response = auth<T, action_type::response>;
 
 /*
 #ifdef ENABLE_SHA256

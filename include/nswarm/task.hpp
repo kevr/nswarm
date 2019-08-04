@@ -9,129 +9,281 @@
 #ifndef NS_TASK_HPP
 #define NS_TASK_HPP
 
-#include <nswarm/auth.hpp>
 #include <nswarm/data.hpp>
+#include <nswarm/response.hpp>
+
 #include <cstdint>
+#include <map>
+#include <set>
 #include <string>
+#include <vector>
 
 namespace ns
 {
 
-/**
- * task_value: Flags field of a task data message.
- *     call (0): Call a provided method
- *     emit (1): Emit a subscribed to event
- **/
-namespace value
-{
-enum task_value : uint16_t { call = 1, emit = 2 };
-};
-
-namespace task_type
+namespace net
 {
 
-struct call {
-    static constexpr value::task_value value = value::task_value::call;
-};
-
-struct emit {
-    static constexpr value::task_value value = value::task_value::emit;
-};
-
-using variant = std::variant<call, emit>;
-
-inline variant deduce(const value::task_value t)
+class task : public json_message, protected responsive<task>
 {
-    switch (t) {
-    case value::task_value::call:
-        return call();
-    case value::task_value::emit:
-        return emit();
-    }
-    throw std::invalid_argument("Invalid task type: " + std::to_string(t));
-}
-
-}; // namespace task_type
-
-//
-// typename T: task_type
-// typename A: action_type
-template <typename T, typename A>
-class task : public data
-{
-    // private members
+protected:
     std::string m_task_id;
 
-public: // static functions
-    static constexpr uint16_t type = T::value;
-    static constexpr value::action_value action = A::value;
+public:
+    enum type { call = 0x0, event = 0x1, bad };
 
-    static task<T, A> deserialize(const std::string &data)
+    struct tag {
+        struct call {
+            using object = task;
+            static constexpr task::type type = task::type::call;
+            static constexpr const char *const human = "task::type::call";
+        };
+        struct event {
+            using object = task;
+            static constexpr task::type type = task::type::event;
+            static constexpr const char *const human = "task::type::event";
+        };
+        struct bad {
+            using object = task;
+            static constexpr task::type type = task::type::bad;
+            static constexpr const char *const human = "task::type::bad";
+        };
+    };
+
+    using variant = std::variant<tag::call, tag::event, tag::bad>;
+
+    static constexpr variant deduce(task::type t)
     {
-        return task<T, A>(json::parse(data));
+        switch (t) {
+        case task::type::call:
+            return tag::call{};
+        case task::type::event:
+            return tag::event{};
+        case task::type::bad:
+            return tag::bad{};
+        }
+        return tag::bad{};
+    }
+    static constexpr variant deduce(uint16_t t)
+    {
+        return deduce(static_cast<task::type>(t));
     }
 
-    static std::string serialize(const task<T, A> &t)
-    {
-        return t.get_string();
-    }
+public:
+    using json_message::json_message;
 
-public: // public functions
-    using data::data;
-
-    // We need to fix this
-    task(const json &js)
-        : task(serialize_header(value::data_value::task, T::value, A::value, 0),
-               js)
-    {
-        m_task_id = js["task_id"];
-        set_size(get_string().size());
-    }
-
-    // Unfortunately, we have to overload these constructors and assignments to
-    // include local m_task_id
+    // We need to specifically provide more extended
+    // constructors to carry along the on_response
+    // callback if provided
     task(const task &t)
-        : data(t)
+        : json_message(t)
     {
         m_task_id = t.m_task_id;
-    }
-
-    void operator=(const task &t)
-    {
-        data::operator=(t);
-        m_task_id = t.m_task_id;
+        on_response(t.m_response_f);
     }
 
     task(task &&t)
-        : data(std::move(t))
+        : json_message(std::move(t))
     {
         m_task_id = std::move(t.m_task_id);
+        on_response(std::move(t.m_response_f));
     }
 
-    void operator=(task &&t)
+    task(const json_message &m)
+        : json_message(m)
     {
-        data::operator=(std::move(t));
+        m_task_id = get_json().at("task_id");
+    }
+
+    task(json_message &&m)
+        : json_message(std::move(m))
+    {
+        m_task_id = get_json().at("task_id");
+    }
+
+    void operator=(task t)
+    {
+        json_message::operator=(std::move(t));
         m_task_id = std::move(t.m_task_id);
+        on_response(std::move(t.m_response_f));
     }
 
-    virtual ~task() = default;
-
-    operator bool() const
+    void operator=(json_message m)
     {
-        return m_task_id.size() > 0;
+        json_message::operator=(std::move(m));
+        m_task_id = get_json().at("task_id");
     }
 
     const std::string &task_id() const
     {
         return m_task_id;
     }
-}; // namespace tasks
 
-template <typename T>
-using task_request = task<T, action_type::request>;
+    const task::type get_task_type() const
+    {
+        return static_cast<task::type>(head().args());
+    }
 
-template <typename T>
-using task_response = task<T, action_type::response>;
+    // Make these publicly accessible
+    using responsive<task>::on_response;
+    using responsive<task>::call_response;
+
+    void respond(net::task t) noexcept
+    {
+        return call_response(std::move(t));
+    }
+
+private:
+    // This task callback function should capture its necessary
+    // connections by copies of their shared_ptrs when registering
+    // on_response. Typically, you would have an upstream connection
+    // in this callback to trigger propagation.
+    //
+    // Ex.
+    //
+    // on_response([=](net::task t) {
+    //     upstream->send(std::move(t));
+    // });
+    //
+
+    template <task::type, action::type>
+    friend net::task make_task(const std::string &, ns::json);
+
+    template <task::type, action::type>
+    friend net::task make_task(const std::string &);
+};
+
+template <task::type task_t, action::type action_t>
+net::task make_task(const std::string &task_id, ns::json js)
+{
+    if (task_id.size() == 0)
+        throw std::out_of_range("task_id cannot be empty");
+
+    js["task_id"] = task_id;
+    auto size = js.dump().size();
+
+    net::task t(net::header(message::type::task, task_t, error::type::none,
+                            action_t, size),
+                std::move(js));
+    t.m_task_id = task_id;
+
+    return t;
+}
+
+template <task::type task_t, action::type action_t>
+net::task make_task(const std::string &task_id)
+{
+    if (task_id.size() == 0)
+        throw std::out_of_range("task_id cannot be empty");
+
+    ns::json js{{"task_id", task_id}};
+    auto size = js.dump().size();
+
+    net::task t(net::header(message::type::task, task_t, error::type::none,
+                            action_t, size),
+                std::move(js));
+    t.m_task_id = task_id;
+
+    return t;
+}
+
+template <task::type task_t, typename... Args>
+net::task make_task_request(Args &&... args)
+{
+    return make_task<task_t, action::type::request>(
+        std::forward<Args>(args)...);
+}
+
+template <task::type task_t, typename... Args>
+net::task make_task_response(Args &&... args)
+{
+    return make_task<task_t, action::type::response>(
+        std::forward<Args>(args)...);
+}
+
+template <task::type task_t>
+net::task make_task_error(const std::string &task_id)
+{
+    // Use friendly function, then update the header with error bit
+    auto t = make_task<task_t, action::type::response>(task_id);
+    t.update(net::header(t.get_type(), t.head().args(), error::type::set,
+                         t.get_action(), t.head().size()));
+    return t;
+}
+
+// Only responses can be errors. It doesn't make sense to request an error.
+template <task::type task_t>
+net::task make_task_error(const std::string &task_id,
+                          const std::string &error_msg)
+{
+    auto t = make_task_error<task_t>(task_id);
+    auto js = t.get_json();
+    js["error"] = error_msg;
+    t.update(js);
+    return t;
+}
+
+// Task manager class.
+// When we receive a task request, we can store the task
+// with a lambda that takes a copy of the request origin's connection.
+//
+// Ex.
+//
+// match(task::deduce(msg.head().args()),
+//   [&](auto task_t) {
+//       auto t = make_task_request<decltype(task_t)>
+//       dispatcher.create(t, [client](ns::task resp) {
+//           if(resp.has_error()) {
+//               loge("Response has an error: ", resp.get_json().at("error"));
+//           }
+//           client->send(std::move(resp));
+//       });
+//   });
+//
+class task_dispatcher
+{
+    std::unordered_map<std::string, net::task> m_tasks;
+
+public:
+    task_dispatcher() = default;
+
+    void create(net::task task_, async_response_function<net::task> on_resp)
+    {
+        const std::string uuid(task_.task_id());
+        auto t = match(net::task::deduce(task_.get_task_type()), [=](auto t) {
+            return net::make_task_request<decltype(t)::type>(uuid);
+        });
+        t.on_response(on_resp);
+        auto task_id = t.task_id();
+        m_tasks.emplace(t.task_id(), std::move(t));
+    }
+
+    /**
+     * \param t A task response.
+     * \return The popped task
+     * This function throws if the given task's task_id is not
+     * found in the internal task map.
+     **/
+    net::task respond(net::task response)
+    {
+        if (response.get_action() != action::type::response)
+            throw std::invalid_argument("task request supplied to response(t)");
+
+        auto task_i = m_tasks.find(response.task_id());
+        if (task_i == m_tasks.end())
+            throw std::out_of_range(response.task_id() +
+                                    " is an invalid task_id");
+
+        auto &[task_id, task] = *task_i;
+        task.call_response(std::move(response)); // Callback
+
+        auto x = std::move(task); // Move task out of the table
+        m_tasks.erase(task_i);    // Task is done, erase the entry
+        return std::move(x);      // Return the task structure to the user
+    }
+};
+
+}; // namespace net
 
 }; // namespace ns
 
