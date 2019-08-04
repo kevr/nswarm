@@ -8,8 +8,10 @@
  * All Rights Reserved
  **/
 #include "config.hpp"
+#include <errno.h>
 #include <nswarm/logging.hpp>
 #include <string>
+#include <thread>
 
 int main(int argc, const char *argv[])
 {
@@ -28,6 +30,14 @@ int main(int argc, const char *argv[])
         ns::set_debug_logging(true);
     }
 
+    // Make sure we have right parameter combinations
+    if (opt.exists("daemon")) {
+        if (!opt.exists("log")) {
+            loge("--log required when daemonizing");
+            return opt.help();
+        }
+    }
+
     // redirect stdout to logfile if --log was provided
     if (opt.exists("log")) {
         logd("--log ", opt.get<std::string>("log"), " found");
@@ -38,6 +48,24 @@ int main(int argc, const char *argv[])
         }
     }
 
-    logi("started");
+    // This has to be executed after we fork
+    auto setBufferMode = [&] {
+        setvbuf(stdout, NULL, _IOLBF, 0);
+        setvbuf(stderr, NULL, _IOLBF, 0);
+    };
+
+    if (opt.exists("daemon")) {
+        // daemon(change dir to /, don't change stdout/stderr)
+        if (daemon(0, 1) == -1) {
+            loge("daemon failed, errno: ", errno);
+            return 1;
+        }
+    }
+
+    setBufferMode();
+
+    logi(opt.name(), " started");
+
+    // This needs to go into a run loop waiting for the server to quit
     return 0;
 }

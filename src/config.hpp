@@ -117,9 +117,10 @@ public:
 private:
     void init()
     {
-        add_option("help,h", "Print help message");
-        add_option("debug,d", "Enable debug logging");
-        add_option("trace", "Enable trace logging (also enables debug)");
+        add_option("help,h", "Print this help message");
+        add_option("debug,v", "Enable debug logging");
+        add_option("trace,x", "Enable trace logging (includes debug)");
+        add_option("daemon,d", "Daemonize process");
         add_option<std::string>("log", "Path to optional logfile");
     }
 
