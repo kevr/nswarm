@@ -10,13 +10,13 @@
 #ifndef NS_CLIENT_HPP
 #define NS_CLIENT_HPP
 
-#include <nswarm/async.hpp>
-#include <nswarm/logging.hpp>
-#include <nswarm/types.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/bind.hpp>
 #include <memory>
+#include <nswarm/async.hpp>
+#include <nswarm/logging.hpp>
+#include <nswarm/types.hpp>
 #include <set>
 
 namespace ns
@@ -104,24 +104,16 @@ public:
 private:
     void connect(const std::string &host, const std::string &port) noexcept
     {
+        this->initialize_socket(m_resolver.get_io_service(), m_context);
         m_host = host;
         m_port = port;
         this->start_resolve(m_resolver, m_host, m_port);
-    }
-
-    void store_endpoint(const tcp::resolver::endpoint_type ep) noexcept
-    {
-        m_remote_host = "";
-        m_remote_port = "";
     }
 
 private:
     std::unique_ptr<io_service> m_io_ptr;
 
     tcp::resolver m_resolver;
-
-    std::string m_remote_host;
-    std::string m_remote_port;
 
 protected:
     ssl::context m_context;

@@ -11,6 +11,7 @@
  * All Rights Reserved
  **/
 #include "config.hpp"
+#include "node/upstream.hpp"
 
 #include <errno.h>
 #include <nswarm/logging.hpp>
@@ -84,5 +85,15 @@ int main(int argc, const char *argv[])
     // Begin real program logic
     logi(opt.name(), " started");
 
+    ns::io_service io;
+    auto upstream = std::make_shared<ns::node::upstream>(io);
+    upstream->on_connect(
+        [key = opt.get<std::string>("upstream-auth-key")](auto c) {
+            logi("Upstream connected; sending authentication key");
+            c->auth(key);
+        });
+    upstream->run(opt.get<std::string>("upstream-host"),
+                  opt.get<std::string>("upstream-port"));
+    io.run();
     return 0;
 }

@@ -32,7 +32,6 @@ public:
     // would be overkill.
     upstream(io_service &io)
         : client(io)
-        , m_auth("abcd")
     {
         init();
     }
@@ -86,7 +85,7 @@ public:
 
     const bool authenticated() const
     {
-        return m_auth.authenticated();
+        return m_is_authenticated;
     }
 
 private:
@@ -96,8 +95,9 @@ private:
         on_auth([this](auto client, auto message) {
             logi("on_auth response received: ", message.get_string());
             auto json = message.get_json();
-            if (json["data"]) {
-                m_auth.authenticate(json["key"]);
+            if (json.at("data")) {
+                m_is_authenticated = true;
+                logi("Authenticated");
             } else {
                 this->close();
             }
@@ -169,6 +169,8 @@ private:
             .on_close([this](auto client) {
                 // Automatically try to reconnect
                 logd("upstream connection closed, reconnecting in 10 seconds");
+                logi("upstream connection was closed, attempting to reconnect "
+                     "in 10 seconds");
                 std::this_thread::sleep_for(std::chrono::seconds(10));
                 client->run(m_host, m_port);
             })
@@ -182,7 +184,7 @@ private:
     }
 
 private:
-    auth_context<authentication::plain> m_auth;
+    bool m_is_authenticated{false};
     set_log_address;
 
 }; // class upstream
