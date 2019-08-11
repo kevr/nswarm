@@ -12,6 +12,7 @@
 #include <atomic>
 #include <nswarm/data.hpp>
 #include <nswarm/logging.hpp>
+#include <nswarm/sha.hpp>
 #include <string>
 
 namespace ns
@@ -168,7 +169,7 @@ public:
     void operator=(const context &ctx)
     {
         m_key = ctx.m_key;
-        m_authed = ctx.m_authed.load();
+        m_authed.exchange(ctx.m_authed.load());
     }
 
     context(context &&ctx)

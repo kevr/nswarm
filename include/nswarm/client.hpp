@@ -105,9 +105,7 @@ private:
     void connect(const std::string &host, const std::string &port) noexcept
     {
         this->initialize_socket(m_resolver.get_io_service(), m_context);
-        m_host = host;
-        m_port = port;
-        this->start_resolve(m_resolver, m_host, m_port);
+        this->start_resolve(m_resolver, host, port);
     }
 
 private:
@@ -118,6 +116,7 @@ private:
 protected:
     ssl::context m_context;
 
+    // Host/port we use to
     std::string m_host;
     std::string m_port;
 

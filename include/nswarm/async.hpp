@@ -237,7 +237,7 @@ public:
 
     const bool connected() const
     {
-        return m_socket->lowest_layer().is_open();
+        return m_is_connected;
     }
 
     const std::string &remote_host() const
@@ -263,6 +263,8 @@ protected:
     void start_resolve(tcp::resolver &resolver, const std::string &host,
                        const std::string &port) noexcept
     {
+        m_remote_host = host;
+        m_remote_port = port;
         logd("resolving ", host, ":", port);
         tcp::resolver::query query(host, port);
         resolver.async_resolve(
@@ -291,21 +293,6 @@ protected:
         }
     }
 
-    void close() noexcept
-    {
-        trace();
-        boost::system::error_code ec; // No need to check, silently fail
-        m_socket->shutdown(ec);       // ssl stream shutdown
-        if (ec) {
-            logd("error_code during socket shutdown: ", ec.message());
-        }
-
-        m_socket->lowest_layer().close(ec);
-        if (ec) {
-            logd("error_code during socket close: ", ec.message());
-        }
-    }
-
     void set_endpoint(const tcp::endpoint &ep)
     {
         m_host = ep.address().to_v4().to_string();
@@ -320,8 +307,34 @@ protected:
         logd("remote_endpoint: ", m_remote_host, ':', m_remote_port);
     }
 
+    void close() noexcept
+    {
+        trace();
+        boost::system::error_code ec; // No need to check, silently fail
+        m_socket->shutdown(ec);       // ssl stream shutdown
+        if (ec) {
+            logd("error_code during socket shutdown: ", ec.message());
+        }
+
+        m_socket->lowest_layer().close(ec);
+        if (ec) {
+            logd("error_code during socket close: ", ec.message());
+        }
+
+        m_is_connected = false;
+    }
+
 private:
-    // boost::asio async callbacks
+    void start_read() noexcept
+    {
+        boost::asio::async_read(
+            *m_socket, m_input, boost::asio::transfer_exactly(sizeof(uint64_t)),
+            boost::bind(&T::async_on_read_header, this->shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    }
+
+private: // boost::asio async callbacks
     void async_on_resolve(const boost::system::error_code &ec,
                           tcp::resolver::iterator iter) noexcept
     {
@@ -372,6 +385,8 @@ private:
 
             set_endpoint(socket().lowest_layer().local_endpoint());
             set_remote_endpoint(socket().lowest_layer().remote_endpoint());
+
+            m_is_connected = true;
 
             if (this->has_connect())
                 this->call_connect(this->shared_from_this());
@@ -457,15 +472,6 @@ private:
         }
     }
 
-    void start_read() noexcept
-    {
-        boost::asio::async_read(
-            *m_socket, m_input, boost::asio::transfer_exactly(sizeof(uint64_t)),
-            boost::bind(&T::async_on_read_header, this->shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
-    }
-
 protected:
     std::unique_ptr<tcp_socket> &socket_ptr()
     {
@@ -496,6 +502,8 @@ private:
         boost::asio::error::connection_reset,
         boost::asio::error::connection_refused,
         boost::asio::error::eof};
+
+    bool m_is_connected{false};
 
     set_log_address;
 };

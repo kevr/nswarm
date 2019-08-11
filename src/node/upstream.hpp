@@ -99,6 +99,7 @@ private:
                 m_is_authenticated = true;
                 logi("Authenticated");
             } else {
+                m_is_authenticated = false;
                 this->close();
             }
         })
@@ -172,13 +173,13 @@ private:
                 logi("upstream connection was closed, attempting to reconnect "
                      "in 10 seconds");
                 std::this_thread::sleep_for(std::chrono::seconds(10));
-                client->run(m_host, m_port);
+                client->run(client->remote_host(), client->remote_port());
             })
             .on_error([this](auto client, const auto &ec) {
                 logd("socket error: ", ec.message());
                 logd("upstream connection closed, reconnecting in 10 seconds");
                 std::this_thread::sleep_for(std::chrono::seconds(10));
-                client->run(m_host, m_port);
+                client->run(client->remote_host(), client->remote_port());
             });
         ;
     }
