@@ -7,7 +7,7 @@
 #include <string>
 
 // https://stackoverflow.com/questions/2262386/generate-sha256-with-openssl-and-c
-std::string sha256(const std::string &str)
+inline std::string sha256(const std::string &str)
 {
     unsigned char hash[SHA256_DIGEST_LENGTH];
     SHA256_CTX sha256;
