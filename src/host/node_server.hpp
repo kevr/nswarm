@@ -142,7 +142,9 @@ public:
             })
             .on_close([this](auto client) {
                 m_nodes.erase(m_nodes.find(client));
-                logi("node disconnected from the swarm");
+                logi("node from ", client->remote_host(), ":",
+                     client->remote_port(),
+                     " disconnected, removing it from the swarm");
             })
             .on_error([this](auto client, const auto &ec) {
                 m_nodes.erase(m_nodes.find(client));

@@ -85,8 +85,9 @@ private:
             loge("got error while sending heartbeat: ", ec.message());
             this->close();
         } else {
-            // 10 second heartbeat
-            m_heartbeat.expires_from_now(boost::posix_time::seconds(10));
+            // We send a heartbeat every delay seconds
+            const boost::posix_time::seconds delay{30}; // Seconds
+            m_heartbeat.expires_from_now(delay);
             m_heartbeat.async_wait(boost::bind(&connection<T>::start_heartbeat,
                                                this->shared_from_this()));
         }
