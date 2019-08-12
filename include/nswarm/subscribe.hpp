@@ -119,7 +119,7 @@ protected:
     void send_event_task(std::shared_ptr<T> &connection,
                          const std::string &task_id, const std::string &event)
     {
-        auto task = net::make_task_request<net::task::type::event>(task_id);
+        auto task = net::make_task_request(task_id);
         task.set_event(event);
         connection->send(std::move(task));
     }

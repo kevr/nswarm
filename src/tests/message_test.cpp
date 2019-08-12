@@ -69,6 +69,14 @@ TEST(message_test, json_message)
 
 TEST(message_test, task_test)
 {
+    std::vector<net::task> v;
+
+    auto unique_id = net::make_unique_task_id(v);
+    while (v.size() < 100) {
+        logi("Unique ID created: ", unique_id);
+        v.emplace_back(net::task(unique_id));
+        unique_id = net::make_unique_task_id(v);
+    }
     auto print = [](auto &task) {
         logi("Created task with id: ", task.task_id());
 
@@ -87,24 +95,24 @@ TEST(message_test, task_test)
     };
 
     // Create an event task request
-    auto task =
-        net::make_task_request<net::task::event>("taskUUIDEventRequest");
+    auto task = net::make_task_request("taskUUIDEventRequest");
+    task.set_event("some_event");
     print(task);
 
     // Create a call task request
-    task = net::make_task_request<net::task::call>("taskUUIDCallRequest");
+    task = net::make_task_request("taskUUIDCallRequest");
+    task.set_method("some_method");
     print(task);
 
     // Create a call error task response
-    task = net::make_task_error<net::task::call>("taskUUIDError",
-                                                 "No actual error");
+    task = net::make_task_error("taskUUIDError", "No actual error");
     print(task);
 
     EXPECT_TRUE(task.has_error());
 
     // Create a call error task response with a message
-    task = net::make_task_error<net::task::call>(
-        "taskUUIDErrorMessage", "You did nothing wrong at all.");
+    task = net::make_task_error("taskUUIDErrorMessage",
+                                "You did nothing wrong at all.");
     print(task);
     logi("Error JSON: ", task.data());
 
@@ -115,13 +123,18 @@ TEST(message_test, task_dispatcher)
 {
     net::task_dispatcher dispatcher;
 
-    auto t = net::make_task_request<net::task::call>("taskUUID");
+    auto t = net::make_task_request("taskUUID");
+    t.update_args(net::task::type::event);
     logi("Task ID: ", t.task_id());
-    dispatcher.create(t, [&](net::task t) {
-        logi("on_response called: ", t.task_id());
+    dispatcher.create(t, [](net::task t) {
+        match(net::task::deduce(t.get_task_type()), [&](auto e) {
+            logi("on_response called: ", t.task_id(),
+                 " with task type: ", decltype(e)::human);
+        });
     });
 
-    t = net::make_task_response<net::task::call>("taskUUID");
+    t.update_action(net::action::type::response);
+
     logi("Task ID: ", t.task_id());
     dispatcher.respond(t);
 }

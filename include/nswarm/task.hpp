@@ -14,6 +14,7 @@
 
 #include <cstdint>
 #include <map>
+#include <random>
 #include <set>
 #include <string>
 #include <vector>
@@ -143,13 +144,23 @@ public:
 
     void set_event(const std::string &event)
     {
+        if (m_json.find("method") != m_json.end())
+            throw std::logic_error(
+                "this task has already been set as an event");
         m_json["event"] = event;
+        if (head().args() != task::type::event)
+            update_args(task::type::event);
         update(std::move(m_json));
     }
 
     void set_method(const std::string &method)
     {
+        if (m_json.find("event") != m_json.end())
+            throw std::logic_error(
+                "this task has already been set as an event");
         m_json["method"] = method;
+        if (head().args() != task::type::call)
+            update_args(task::type::call);
         update(std::move(m_json));
     }
 
@@ -166,39 +177,36 @@ private:
     // });
     //
 
-    template <task::type, action::type, typename... Args>
+    template <action::type, typename... Args>
     friend net::task make_task(Args &&...);
 };
 
-template <task::type task_t, action::type action_t, typename... Args>
+template <action::type action_t, typename... Args>
 net::task make_task(Args &&... args)
 {
     auto t = net::task(std::forward<Args>(args)...);
-    t.update_args(task_t);
-    t.update_action(action_t);
+    if (t.get_action() != action_t)
+        t.update_action(action_t);
     return t;
 }
 
-template <task::type task_t, typename... Args>
+template <typename... Args>
 net::task make_task_request(Args &&... args)
 {
-    return make_task<task_t, action::type::request>(
-        std::forward<Args>(args)...);
+    return make_task<action::type::request>(std::forward<Args>(args)...);
 }
 
-template <task::type task_t, typename... Args>
+template <typename... Args>
 net::task make_task_response(Args &&... args)
 {
-    return make_task<task_t, action::type::response>(
-        std::forward<Args>(args)...);
+    return make_task<action::type::response>(std::forward<Args>(args)...);
 }
 
 // Only responses can be errors. It doesn't make sense to request an error.
-template <task::type task_t>
-net::task make_task_error(const std::string &task_id,
-                          const std::string &error_msg)
+inline net::task make_task_error(const std::string &task_id,
+                                 const std::string &error_msg)
 {
-    auto t = net::make_task_response<task_t>(task_id);
+    auto t = net::make_task_response(task_id);
     t.update_error(error::type::set, error_msg);
     return t;
 }
@@ -231,11 +239,13 @@ public:
     {
         const std::string uuid(task_.task_id());
         auto t = match(net::task::deduce(task_.get_task_type()), [=](auto t) {
-            return net::make_task_request<decltype(t)::type>(uuid);
+            auto task = net::task(uuid);
+            task.update_args(decltype(t)::type);
+            return task;
         });
         t.on_response(on_resp);
-        auto task_id = t.task_id();
-        m_tasks.emplace(t.task_id(), std::move(t));
+        const auto task_id = t.task_id();
+        m_tasks.emplace(task_id, std::move(t));
     }
 
     /**
@@ -262,6 +272,59 @@ public:
         return std::move(x);      // Return the task structure to the user
     }
 };
+
+template <template <typename> typename Container>
+std::string make_unique_task_id(const Container<net::task> &c)
+{
+    std::string task_id;
+
+    static const auto &chrs = "0123456789abcdef";
+    static std::random_device rd;
+    static std::uniform_int_distribution<std::string::size_type> pick(
+        0, sizeof(chrs) - 2);
+
+    std::set<std::string> s;
+    for (auto &e : c)
+        s.emplace(e.task_id());
+
+    auto make_string = [](auto length) {
+        std::string str;
+        str.reserve(length);
+        while (--length)
+            str.push_back(chrs[pick(rd)]);
+        return str;
+    };
+
+    task_id = make_string(16);
+    while (s.find(task_id) != s.end())
+        task_id = make_string(16);
+
+    return task_id;
+}
+
+template <template <typename, typename> typename Container>
+std::string make_unique_task_id(const Container<std::string, net::task> &c)
+{
+    std::string task_id;
+
+    static const auto &chrs = "0123456789abcdef";
+    static std::random_device rd;
+    static std::uniform_int_distribution<std::string::size_type> pick(
+        0, sizeof(chrs) - 2);
+
+    auto make_string = [](auto length) {
+        std::string str;
+        str.reserve(length);
+        while (--length)
+            str.push_back(chrs[pick(rd)]);
+        return str;
+    };
+
+    task_id = make_string(16);
+    while (c.find(task_id) != c.end())
+        task_id = make_string(16);
+    return task_id;
+}
 
 }; // namespace net
 
