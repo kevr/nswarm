@@ -40,21 +40,12 @@ heartbeat make_heartbeat_response(Args &&... args)
     return make_heartbeat<action::type::response>(std::forward<Args>(args)...);
 }
 
-heartbeat make_heartbeat_error(const std::string &error)
+// Inline to avoid ODR violation.
+inline heartbeat make_heartbeat_error(const std::string &error)
 {
     // Create a normal impl
     auto hb = make_heartbeat<action::type::response>();
-
-    // Then, set the error field in json...
-    auto js = hb.get_json();
-    js["error"] = error;
-    auto size = js.dump().size(); // acquiire new size
-
-    // And update the header with error::type::set and the new json
-    hb.update(net::header(hb.get_type(), hb.head().args(), error::type::set,
-                          hb.get_action(), size),
-              js);
-
+    hb.update_error(error::type::set, error);
     return hb;
 }
 

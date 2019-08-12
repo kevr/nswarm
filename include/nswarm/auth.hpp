@@ -84,13 +84,10 @@ net::auth make_auth_response(Args &&... args)
 }
 
 inline net::auth make_auth_error(const std::string &key,
-                                 const std::string &error)
+                                 const std::string &error_str)
 {
-    auto a = make_auth_response(key);
-    a.update_error(error::type::set);
-    auto js = a.json();
-    js["error"] = error;
-    a.update(js);
+    auto a = net::make_auth_response(key);
+    a.update_error(error::type::set, error_str);
     return a;
 }
 

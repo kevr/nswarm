@@ -60,22 +60,12 @@ implementation make_impl_response(Args &&... args)
         std::forward<Args>(args)...);
 }
 
-implementation make_impl_error(const std::string &method,
-                               const std::string &error)
+// Inline to avoid ODR violation
+inline implementation make_impl_error(const std::string &method,
+                                      const std::string &error)
 {
-    // Create a normal impl
-    auto impl = make_implementation<action::type::response>(method);
-
-    // Then, set the error field in json...
-    auto js = impl.get_json();
-    js["error"] = error;
-    auto size = js.dump().size(); // acquiire new size
-
-    // And update the header with error::type::set and the new json
-    impl.update(net::header(impl.get_type(), impl.head().args(),
-                            error::type::set, impl.get_action(), size),
-                std::move(js));
-
+    auto impl = net::make_implementation<action::type::response>(method);
+    impl.update_error(error::type::set, error);
     return impl;
 }
 

@@ -491,6 +491,13 @@ public:
         m_json = std::move(msg.m_json);
     }
 
+    void update_error(error::type error_t, const std::string &error_str)
+    {
+        message::update_error(error_t);
+        m_json["error"] = error_str;
+        update(std::move(m_json));
+    }
+
     void update(const ns::json &data)
     {
         m_json = data;
