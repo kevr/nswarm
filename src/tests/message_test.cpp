@@ -96,7 +96,8 @@ TEST(message_test, task_test)
     print(task);
 
     // Create a call error task response
-    task = net::make_task_error<net::task::call>("taskUUIDError");
+    task = net::make_task_error<net::task::call>("taskUUIDError",
+                                                 "No actual error");
     print(task);
 
     EXPECT_TRUE(task.has_error());

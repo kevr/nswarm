@@ -72,6 +72,14 @@ public:
 public:
     using json_message::json_message;
 
+    task(const std::string &task_id)
+        : m_task_id(task_id)
+    {
+        update(ns::json{{"task_id", task_id}});
+        update(net::header(message::type::task, 0, error::type::none,
+                           action::type::request, m_data.size()));
+    }
+
     // We need to specifically provide more extended
     // constructors to carry along the on_response
     // callback if provided
@@ -133,6 +141,18 @@ public:
         return call_response(std::move(t));
     }
 
+    void set_event(const std::string &event)
+    {
+        m_json["event"] = event;
+        update(std::move(m_json));
+    }
+
+    void set_method(const std::string &method)
+    {
+        m_json["method"] = method;
+        update(std::move(m_json));
+    }
+
 private:
     // This task callback function should capture its necessary
     // connections by copies of their shared_ptrs when registering
@@ -146,44 +166,16 @@ private:
     // });
     //
 
-    template <task::type, action::type>
-    friend net::task make_task(const std::string &, ns::json);
-
-    template <task::type, action::type>
-    friend net::task make_task(const std::string &);
+    template <task::type, action::type, typename... Args>
+    friend net::task make_task(Args &&...);
 };
 
-template <task::type task_t, action::type action_t>
-net::task make_task(const std::string &task_id, ns::json js)
+template <task::type task_t, action::type action_t, typename... Args>
+net::task make_task(Args &&... args)
 {
-    if (task_id.size() == 0)
-        throw std::out_of_range("task_id cannot be empty");
-
-    js["task_id"] = task_id;
-    auto size = js.dump().size();
-
-    net::task t(net::header(message::type::task, task_t, error::type::none,
-                            action_t, size),
-                std::move(js));
-    t.m_task_id = task_id;
-
-    return t;
-}
-
-template <task::type task_t, action::type action_t>
-net::task make_task(const std::string &task_id)
-{
-    if (task_id.size() == 0)
-        throw std::out_of_range("task_id cannot be empty");
-
-    ns::json js{{"task_id", task_id}};
-    auto size = js.dump().size();
-
-    net::task t(net::header(message::type::task, task_t, error::type::none,
-                            action_t, size),
-                std::move(js));
-    t.m_task_id = task_id;
-
+    auto t = net::task(std::forward<Args>(args)...);
+    t.update_args(task_t);
+    t.update_action(action_t);
     return t;
 }
 
@@ -201,25 +193,13 @@ net::task make_task_response(Args &&... args)
         std::forward<Args>(args)...);
 }
 
-template <task::type task_t>
-net::task make_task_error(const std::string &task_id)
-{
-    // Use friendly function, then update the header with error bit
-    auto t = make_task<task_t, action::type::response>(task_id);
-    t.update(net::header(t.get_type(), t.head().args(), error::type::set,
-                         t.get_action(), t.head().size()));
-    return t;
-}
-
 // Only responses can be errors. It doesn't make sense to request an error.
 template <task::type task_t>
 net::task make_task_error(const std::string &task_id,
                           const std::string &error_msg)
 {
-    auto t = make_task_error<task_t>(task_id);
-    auto js = t.get_json();
-    js["error"] = error_msg;
-    t.update(js);
+    auto t = net::make_task_response<task_t>(task_id);
+    t.update_error(error::type::set, error_msg);
     return t;
 }
 
