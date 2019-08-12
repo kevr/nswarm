@@ -36,6 +36,17 @@ private:
     using async_protocol_function =
         ns::async_protocol_function<ConnectionT, DataT>;
 
+    async_protocol_function m_auth_f;
+    async_protocol_function m_implement_f;
+    async_protocol_function m_subscribe_f;
+    async_protocol_function m_task_f;
+    async_protocol_function m_heartbeat_f;
+
+    std::map<net::message::type, async_protocol_function> call_table;
+
+protected:
+    set_log_address;
+
 public:
     protocol()
     {
@@ -144,17 +155,6 @@ public:
     {
         call_table.at(type)(std::forward<Args>(args)...);
     }
-
-private:
-    async_protocol_function m_auth_f;
-    async_protocol_function m_implement_f;
-    async_protocol_function m_subscribe_f;
-    async_protocol_function m_task_f;
-    async_protocol_function m_heartbeat_f;
-
-    std::map<net::message::type, async_protocol_function> call_table;
-
-    set_log_address;
 };
 
 namespace error

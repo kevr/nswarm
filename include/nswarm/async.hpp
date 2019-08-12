@@ -47,6 +47,14 @@ using async_error_function =
 template <typename Derivative, typename T = Derivative>
 class async_object
 {
+    async_read_function<T> m_read_f;
+    async_connect_function<T> m_connect_f;
+    async_close_function<T> m_close_f;
+    async_error_function<T> m_error_f;
+
+protected:
+    set_log_address;
+
 public:
     async_object() = default;
     virtual ~async_object() = default;
@@ -119,15 +127,6 @@ protected:
     {
         return m_error_f != nullptr;
     }
-
-private:
-    async_read_function<T> m_read_f;
-    async_connect_function<T> m_connect_f;
-    async_close_function<T> m_close_f;
-    async_error_function<T> m_error_f;
-
-protected:
-    set_log_address;
 };
 
 /**
@@ -164,6 +163,35 @@ template <typename T>
 class async_io_object : public async_object<T>,
                         public std::enable_shared_from_this<T>
 {
+    // Error whitelist - when encountering one of these errors,
+    // we will gracefully close the socket.
+    static inline const std::set<boost::system::error_code> m_errors_wl{
+        boost::asio::ssl::error::stream_truncated,
+        boost::asio::error::operation_aborted,
+        boost::asio::error::connection_aborted,
+        boost::asio::error::connection_reset,
+        boost::asio::error::connection_refused,
+        boost::asio::error::eof};
+
+    boost::asio::streambuf m_input;
+    std::istream m_is{&m_input};
+
+    boost::asio::streambuf m_output;
+    std::ostream m_os{&m_output};
+
+    std::unique_ptr<tcp_socket> m_socket;
+
+    std::string m_host;
+    std::string m_port;
+
+    std::string m_remote_host;
+    std::string m_remote_port;
+
+    bool m_is_connected{false};
+
+protected:
+    set_log_address;
+
 public:
     // IMPORTANT: This function *must* be called from a derived
     // object constructor. m_socket is assumed to be valid
@@ -489,35 +517,6 @@ protected:
     {
         return m_socket;
     }
-
-private:
-    boost::asio::streambuf m_input;
-    std::istream m_is{&m_input};
-
-    boost::asio::streambuf m_output;
-    std::ostream m_os{&m_output};
-
-    std::unique_ptr<tcp_socket> m_socket;
-
-    std::string m_host;
-    std::string m_port;
-
-    std::string m_remote_host;
-    std::string m_remote_port;
-
-    // Error whitelist - when encountering one of these errors,
-    // we will gracefully close the socket.
-    static inline const std::set<boost::system::error_code> m_errors_wl{
-        boost::asio::ssl::error::stream_truncated,
-        boost::asio::error::operation_aborted,
-        boost::asio::error::connection_aborted,
-        boost::asio::error::connection_reset,
-        boost::asio::error::connection_refused,
-        boost::asio::error::eof};
-
-    bool m_is_connected{false};
-
-    set_log_address;
 };
 
 }; // namespace ns

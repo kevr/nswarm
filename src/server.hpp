@@ -30,6 +30,13 @@ using async_server_error_function =
 template <typename T>
 class connection : public async_io_object<T>
 {
+    boost::asio::deadline_timer m_heartbeat;
+    boost::asio::streambuf m_heartbeat_buf;
+    std::ostream m_heartbeat_os{&m_heartbeat_buf};
+
+protected:
+    set_log_address;
+
 public:
     connection(io_service &io, ssl::context &ctx) noexcept
         : m_heartbeat(io)
@@ -95,14 +102,7 @@ private:
         }
     }
 
-private:
-    boost::asio::deadline_timer m_heartbeat;
-    boost::asio::streambuf m_heartbeat_buf;
-    std::ostream m_heartbeat_os{&m_heartbeat_buf};
-
 protected:
-    set_log_address;
-
     template <typename U>
     friend class tcp_server;
 
@@ -118,6 +118,27 @@ std::shared_ptr<T> make_connection(Args &&... args)
 template <typename T>
 class tcp_server : public async_object<tcp_server<T>, T>
 {
+    std::unique_ptr<io_service> m_io_ptr;
+
+    async_accept_function<T> m_accept_f;
+    async_server_error_function<tcp_server> m_server_error_f;
+
+    std::thread m_thread;
+
+    // Start connection count at 0. on_close/on_error we will
+    // decrement this count.
+    std::atomic<std::size_t> m_connections = 0;
+
+    std::mutex m_mutex;
+    bool m_running = false;
+
+protected:
+    ssl::context m_context;
+    tcp::acceptor m_acceptor;
+
+protected:
+    set_log_address;
+
 public:
     tcp_server(const std::string &host, unsigned short port)
         : m_io_ptr(std::make_unique<io_service>())
@@ -331,27 +352,6 @@ private:
                 this->call_server_error(this, ec);
         }
     }
-
-private:
-    std::unique_ptr<io_service> m_io_ptr;
-
-    async_accept_function<T> m_accept_f;
-    async_server_error_function<tcp_server> m_server_error_f;
-
-    std::thread m_thread;
-
-    // Start connection count at 0. on_close/on_error we will
-    // decrement this count.
-    std::atomic<std::size_t> m_connections = 0;
-
-    std::mutex m_mutex;
-    bool m_running = false;
-
-protected:
-    ssl::context m_context;
-    tcp::acceptor m_acceptor;
-
-    set_log_address;
 }; // class tcp_server
 
 // raw tcp_connection. other classes should derive from connection<DerivedT>
