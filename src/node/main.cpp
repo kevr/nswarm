@@ -89,7 +89,8 @@ int main(int argc, const char *argv[])
     auto upstream = std::make_shared<ns::node::upstream>(io);
     upstream->on_connect(
         [key = opt.get<std::string>("upstream-auth-key")](auto c) {
-            logi("upstream connected; sending authentication key");
+            logi("upstream connected to ", c->remote_host(), ":",
+                 c->remote_port(), ", authenticating");
             c->auth(key);
         });
     upstream->run(opt.get<std::string>("upstream-host"),
