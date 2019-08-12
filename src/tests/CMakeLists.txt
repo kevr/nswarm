@@ -32,3 +32,5 @@ target_link_libraries(service_server_test gtest_main)
 add_executable(message_test message_test.cpp)
 target_link_libraries(message_test gtest_main)
 
+add_executable(api_server_test api_server_test.cpp)
+target_link_libraries(api_server_test gtest_main)

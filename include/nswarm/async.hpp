@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <memory>
 #include <nswarm/data.hpp>
+#include <nswarm/heartbeat.hpp>
 #include <nswarm/logging.hpp>
 #include <nswarm/types.hpp>
 #include <set>
@@ -184,32 +185,21 @@ public:
                 "std::numeric_limits<uint32_t>::max(): " +
                 std::to_string(std::numeric_limits<uint32_t>::max()));
 
-        // We should send a valid header no matter what.
-        uint64_t header = data.head().value();
-        m_os.write(reinterpret_cast<char *>(&header), sizeof(uint64_t));
-
-        // If data was provided, write it to the stream
-        std::size_t sz(data.head().size());
-        if (sz != str.size()) {
-            loge("invalid header size compared to stored data: ", sz, " vs ",
-                 str.size());
-        }
-
-        if (sz > 0) {
-            m_os.write(str.data(), sz);
-        }
-
+        m_os << data;
         boost::asio::async_write(
             *m_socket, m_output,
-            boost::asio::transfer_exactly(data.size() + sizeof(uint64_t)),
+            boost::asio::transfer_exactly(data.total_size()),
             boost::bind(&T::async_on_write, this->shared_from_this(),
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
     }
 
+    // This function is deprecated and should not be used.
     void send(uint16_t type, uint16_t flags = 0,
               std::optional<std::string> data = std::optional<std::string>())
     {
+        logd("this function is deprecated and should not be used");
+
         uint32_t data_size = 0; // Assume no data
 
         // Here: if data is present, serialize_header with the real data size
@@ -238,6 +228,16 @@ public:
     const bool connected() const
     {
         return m_is_connected;
+    }
+
+    const std::string &host() const
+    {
+        return m_host;
+    }
+
+    const std::string &port() const
+    {
+        return m_port;
     }
 
     const std::string &remote_host() const
@@ -469,6 +469,18 @@ private: // boost::asio async callbacks
                  " data size)");
         } else {
             handle_error(ec, "client socket closed while writing");
+        }
+    }
+
+    void async_on_heartbeat(const boost::system::error_code &ec,
+                            std::size_t bytes) noexcept
+    {
+        trace();
+
+        if (!ec) {
+            logd("sent heartbeat");
+        } else {
+            handle_error(ec, "client socket closed while writing heartbeat");
         }
     }
 

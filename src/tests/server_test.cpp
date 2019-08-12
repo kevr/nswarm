@@ -1,6 +1,7 @@
 #include "server.hpp"
 #include <gtest/gtest.h>
 #include <nswarm/client.hpp>
+#include <nswarm/util.hpp>
 
 using namespace ns;
 
@@ -77,7 +78,9 @@ TEST_F(server_test, server_accepts_client)
         .on_error([](auto c, const auto &e) {
         })
         .run("localhost", "6666");
-
+    ns::wait_until([&] {
+        return m_server->count() == 0;
+    });
     EXPECT_EQ(m_server->count(), 0);
 }
 

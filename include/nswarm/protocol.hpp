@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <nswarm/data.hpp>
+#include <nswarm/heartbeat.hpp>
 
 namespace ns
 {
@@ -25,6 +26,9 @@ using async_subscribe_function = async_protocol_function<T, D>;
 template <typename T, typename D>
 using async_task_function = async_protocol_function<T, D>;
 
+template <typename T, typename D>
+using async_heartbeat_function = async_protocol_function<T, D>;
+
 template <typename ConnectionT, typename DataT>
 class protocol
 {
@@ -33,6 +37,12 @@ private:
         ns::async_protocol_function<ConnectionT, DataT>;
 
 public:
+    protocol()
+    {
+        on_heartbeat([](auto c, auto m) -> void {
+        });
+    }
+
     void set_external_log_address(const ConnectionT *conn)
     {
         p_secret_log_addr = std::to_string((unsigned long)conn);
@@ -111,6 +121,24 @@ public:
         return m_task_f != nullptr;
     }
 
+    protocol &on_heartbeat(async_protocol_function heartbeat_f)
+    {
+        m_heartbeat_f = heartbeat_f;
+        call_table[net::message::heartbeat] = m_heartbeat_f;
+        return *this;
+    }
+
+    template <typename... Args>
+    void call_heartbeat(Args &&... args)
+    {
+        return m_heartbeat_f(std::forward<Args>(args)...);
+    }
+
+    bool has_heartbeat() const
+    {
+        return m_heartbeat_f != nullptr;
+    }
+
     template <typename... Args>
     void call(net::message::type type, Args &&... args)
     {
@@ -122,6 +150,7 @@ private:
     async_protocol_function m_implement_f;
     async_protocol_function m_subscribe_f;
     async_protocol_function m_task_f;
+    async_protocol_function m_heartbeat_f;
 
     std::map<net::message::type, async_protocol_function> call_table;
 

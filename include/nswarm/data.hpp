@@ -57,6 +57,33 @@ public:
     {
     }
 
+    void update_type(uint16_t type_)
+    {
+        m_type = type_;
+    }
+
+    void update_args(uint16_t args_)
+    {
+        m_args = (args_ << 2) | ((m_args << 1) & 1) | (m_args & 1);
+    }
+
+    void update_error(uint8_t error_)
+    {
+        m_args = (args() << 2) | (((uint16_t)(error_ & 1) << 1)) |
+                 ((uint16_t)direction() & 1);
+    }
+
+    void update_direction(uint8_t dir_)
+    {
+        m_args =
+            (args() << 2) | ((uint16_t)error() << 1) | ((uint16_t)dir_ & 1);
+    }
+
+    void update_size(uint32_t sz)
+    {
+        m_size = sz;
+    }
+
     const uint64_t value() const
     {
         return pack(m_type, m_args, m_size);
@@ -216,6 +243,7 @@ public: // Some constant structure data
         implement = 0x2,
         subscribe = 0x3,
         task = 0x4,
+        heartbeat = 0x5,
         bad,
     };
 
@@ -243,6 +271,12 @@ public: // Some constant structure data
             static constexpr message::type type = message::type::task;
             static constexpr const char *const human = "message::type::task";
         };
+        struct heartbeat {
+            using object = message;
+            static constexpr message::type type = message::type::heartbeat;
+            static constexpr const char *const human =
+                "message::type::heartbeat";
+        };
         struct bad {
             using object = message;
             static constexpr message::type type = message::type::bad;
@@ -251,7 +285,7 @@ public: // Some constant structure data
     };
 
     using variant = std::variant<tag::auth, tag::implement, tag::subscribe,
-                                 tag::task, tag::bad>;
+                                 tag::task, tag::heartbeat, tag::bad>;
 
     // Deduce a variant from a real-time message::type value
     static constexpr variant deduce(message::type t)
@@ -265,6 +299,8 @@ public: // Some constant structure data
             return tag::subscribe{};
         case message::type::task:
             return tag::task{};
+        case message::type::heartbeat:
+            return tag::heartbeat{};
         case message::type::bad:
             return tag::bad{};
         }
@@ -331,11 +367,8 @@ public: // Initialization constructors
     {
         m_data = std::move(data);
         // Fix header size field if it's not yet matched
-        if (m_header.size() != m_data.size()) {
-            m_header =
-                net::header(m_header.type(), m_header.args(), m_header.error(),
-                            m_header.direction(), m_data.size());
-        }
+        if (m_header.size() != m_data.size())
+            update_size(m_data.size());
     }
 
     void update(const net::header &head, std::string data)
@@ -371,6 +404,31 @@ public:
         return m_header;
     }
 
+    void update_type(message::type t)
+    {
+        m_header.update_type(t);
+    }
+
+    void update_args(uint16_t args)
+    {
+        m_header.update_args(args);
+    }
+
+    void update_error(error::type t)
+    {
+        m_header.update_error(t);
+    }
+
+    void update_action(action::type t)
+    {
+        m_header.update_direction(t);
+    }
+
+    void update_size(uint32_t sz)
+    {
+        m_header.update_size(sz);
+    }
+
     const std::string &data() const
     {
         return m_data;
@@ -384,6 +442,11 @@ public:
     const uint32_t size() const
     {
         return head().size();
+    }
+
+    const std::size_t total_size() const
+    {
+        return m_data.size() + sizeof(uint64_t);
     }
 };
 
@@ -428,10 +491,10 @@ public:
         m_json = std::move(msg.m_json);
     }
 
-    void update(ns::json data)
+    void update(const ns::json &data)
     {
-        m_json = std::move(data);
-        update(m_json.dump());
+        m_json = data;
+        update(data.dump());
     }
 
     const ns::json &json() const
@@ -459,6 +522,16 @@ public:
         std::string buf(size, '\0');
         is.read(&buf[0], size);
         update(buf);
+    }
+
+    // Provide a friend for std::ostream, for easy writes externally
+    friend std::ostream &operator<<(std::ostream &os, const json_message &msg)
+    {
+        uint64_t head = msg.head().value();
+        os.write(reinterpret_cast<char *>(&head), sizeof(uint64_t));
+        if (msg.size())
+            os.write(msg.get_string().c_str(), msg.size());
+        return os;
     }
 };
 

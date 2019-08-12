@@ -38,11 +38,11 @@ public:
 
     void auth(const std::string &key)
     {
-        ns::json js{{"key", key}};
-        send(net::make_auth_request(js));
+        send(net::make_auth_request(key));
     }
 
-    // construct implement message
+    // We should do exactly what we did to net::auth to the rest
+    // of the structures we support below.
     void implement(const std::string &method)
     {
         // implementation takes a method
@@ -91,13 +91,16 @@ public:
 private:
     void init()
     {
+        on_heartbeat([this](auto c, auto msg) {
+            auto hb = net::make_heartbeat_response();
+            c->send(hb);
+        });
         // Setup protocol callbacks
         on_auth([this](auto client, auto message) {
-            logi("on_auth response received: ", message.get_string());
             auto json = message.get_json();
             if (json.at("data")) {
                 m_is_authenticated = true;
-                logi("Authenticated");
+                logi("authenticated with upstream host");
             } else {
                 m_is_authenticated = false;
                 this->close();

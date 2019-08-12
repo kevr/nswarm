@@ -142,23 +142,21 @@ TEST(message_test, auth_test)
     };
 
     // Create an event auth request
-    auto auth =
-        net::make_auth_request(ns::json{{"key", "authUUIDEventRequest"}});
+    auto auth = net::make_auth_request("authUUIDEventRequest");
     print(auth);
 
     // Create a call auth request
-    auth = net::make_auth_request(ns::json{{"key", "authUUIDCallRequest"}});
+    auth = net::make_auth_request("authUUIDCallRequest");
     print(auth);
 
     // Create a call error auth response
-    auth = net::make_auth_error(ns::json{{"key", "someKey"}}, "authUUIDError");
+    auth = net::make_auth_error("someKey", "authUUIDError");
     print(auth);
 
     EXPECT_TRUE(auth.has_error());
 
     // Create a call error auth response with a message
-    auth = net::make_auth_error(ns::json{{"key", "someKey"}},
-                                "You did nothing wrong at all.");
+    auth = net::make_auth_error("someKey", "You did nothing wrong at all.");
     print(auth);
     logi("Error JSON: ", auth.data());
 

@@ -1,4 +1,4 @@
-#include "host/node_server.hpp"
+#include "host/api_server.hpp"
 #include "memory.hpp"
 #include <gtest/gtest.h>
 #include <nswarm/client.hpp>
@@ -7,7 +7,7 @@
 
 using namespace ns;
 
-class node_server_test : public ::testing::Test
+class api_server_test : public ::testing::Test
 {
 protected:
     static void SetUpTestCase()
@@ -19,7 +19,7 @@ protected:
     {
         trace();
         // start() bad_weak_ptr, stop() segfault
-        m_server = std::make_shared<ns::host::node_server>(6666);
+        m_server = std::make_shared<ns::host::api_server>(6667);
         m_server
             ->on_connect([](auto c) {
                 logd("client connected from ", c->remote_host(), ":",
@@ -35,10 +35,10 @@ protected:
         m_server->stop();
     }
 
-    std::shared_ptr<ns::host::node_server> m_server;
+    std::shared_ptr<ns::host::api_server> m_server;
 };
 
-TEST_F(node_server_test, server_listens)
+TEST_F(api_server_test, server_listens)
 {
     trace();
 
@@ -57,7 +57,7 @@ TEST_F(node_server_test, server_listens)
         .run("localhost", "6666");
 }
 
-TEST_F(node_server_test, server_denies_auth)
+TEST_F(api_server_test, server_denies_auth)
 {
     trace();
 
@@ -66,7 +66,7 @@ TEST_F(node_server_test, server_denies_auth)
         ->on_connect([this](auto c) {
             EXPECT_EQ(m_server->count(), 1);
             logi("connected to ", c->remote_host(), ":", c->remote_port());
-            c->send(net::make_auth_request("abcd"));
+            c->send(net::make_auth_request(ns::json{{"key", "abcd"}}));
         })
         .on_close([this](auto c) {
             logi("closed");
@@ -84,7 +84,7 @@ TEST_F(node_server_test, server_denies_auth)
     });
 }
 
-TEST_F(node_server_test, server_approves_auth)
+TEST_F(api_server_test, server_approves_auth)
 {
     trace();
 }

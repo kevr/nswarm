@@ -32,6 +32,7 @@ class connection : public async_io_object<T>
 {
 public:
     connection(io_service &io, ssl::context &ctx) noexcept
+        : m_heartbeat(io)
     {
         this->initialize_socket(io, ctx);
     }
@@ -56,11 +57,52 @@ public:
         this->start_handshake(ssl::stream_base::server);
     }
 
+    void start_heartbeat()
+    {
+        auto hb = net::make_heartbeat_request();
+        uint64_t head = hb.head().value();
+        m_heartbeat_os.write((char *)&head, sizeof(uint64_t));
+        const auto &s = hb.get_string();
+        if (s.size())
+            m_heartbeat_os.write(s.data(), s.size());
+        boost::asio::async_write(
+            *this->socket_ptr(), m_heartbeat_buf,
+            boost::asio::transfer_exactly(s.size() + sizeof(uint64_t)),
+            boost::bind(&connection<T>::async_on_heartbeat_write,
+                        this->shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    }
+
     // Make this publicly accessible
     using async_io_object<T>::close;
 
+private:
+    void async_on_heartbeat_write(const boost::system::error_code &ec,
+                                  std::size_t bytes)
+    {
+        if (ec) {
+            loge("got error while sending heartbeat: ", ec.message());
+            this->close();
+        } else {
+            // 10 second heartbeat
+            m_heartbeat.expires_from_now(boost::posix_time::seconds(10));
+            m_heartbeat.async_wait(boost::bind(&connection<T>::start_heartbeat,
+                                               this->shared_from_this()));
+        }
+    }
+
+private:
+    boost::asio::deadline_timer m_heartbeat;
+    boost::asio::streambuf m_heartbeat_buf;
+    std::ostream m_heartbeat_os{&m_heartbeat_buf};
+
 protected:
     set_log_address;
+
+    template <typename U>
+    friend class tcp_server;
+
 }; // class connection
 
 template <typename T, typename... Args>
@@ -74,19 +116,35 @@ template <typename T>
 class tcp_server : public async_object<tcp_server<T>, T>
 {
 public:
+    tcp_server(const std::string &host, unsigned short port)
+        : m_io_ptr(std::make_unique<io_service>())
+        , m_context(ssl::context::sslv23)
+        , m_acceptor(
+              *m_io_ptr,
+              tcp::endpoint(boost::asio::ip::address::from_string(host), port))
+    {
+    }
+
+    tcp_server(io_service &io, const std::string &host, unsigned short port)
+        : m_context(ssl::context::sslv23)
+        , m_acceptor(io, tcp::endpoint(
+                             boost::asio::ip::address::from_string(host), port))
+    {
+    }
+
     tcp_server(unsigned short port) noexcept
         : m_io_ptr(std::make_unique<io_service>())
         , m_context(ssl::context::sslv23)
         , m_acceptor(*m_io_ptr, tcp::endpoint(tcp::v4(), port))
     {
-        logi("using port ", port);
+        logd("using port ", port);
     }
 
     tcp_server(io_service &io, unsigned short port) noexcept
         : m_context(ssl::context::sslv23)
         , m_acceptor(io, tcp::endpoint(tcp::v4(), port))
     {
-        logi("using port ", port);
+        logd("using port ", port);
     }
 
     virtual ~tcp_server() = default;
@@ -124,11 +182,21 @@ public:
 
     void run()
     {
-        logi("accepting new connections");
         m_acceptor.listen();
+        logi("accepting new connections on ", host(), ":", port());
         try_accept();
         if (m_io_ptr)
             m_io_ptr->run();
+    }
+
+    const std::string host() const
+    {
+        return m_acceptor.local_endpoint().address().to_v4().to_string();
+    }
+
+    const std::string port() const
+    {
+        return std::to_string(m_acceptor.local_endpoint().port());
     }
 
     // Start the server by calling run() within a thread
@@ -171,7 +239,9 @@ public:
 
     io_service &get_io_service()
     {
-        return *m_io_ptr;
+        if (m_io_ptr)
+            return *m_io_ptr;
+        return m_acceptor.get_io_service();
     }
 
     const std::size_t count() const
@@ -223,9 +293,10 @@ private:
 
             // Bind all callbacks to our new connection
             if (this->has_connect())
-                client->on_connect(std::bind(
-                    &tcp_server::template call_connect<std::shared_ptr<T>>,
-                    this, std::placeholders::_1));
+                client->on_connect([this](auto c) {
+                    c->start_heartbeat();
+                    this->call_connect(c);
+                });
             if (this->has_read())
                 client->on_read(std::bind(
                     &tcp_server::template call_read<std::shared_ptr<T>,

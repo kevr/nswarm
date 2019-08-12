@@ -1,6 +1,7 @@
 #ifndef NS_HOST_DAEMON_HPP
 #define NS_HOST_DAEMON_HPP
 
+#include "host/api_server.hpp"
 #include "host/node_server.hpp"
 
 #include <nswarm/logging.hpp>
@@ -16,8 +17,15 @@ class daemon
 
     // api_server m_api_server{m_io, 6667};
     node_server m_node_server{m_io, 6666};
+    api_server m_api_server{m_io, 6667};
 
 public:
+    daemon()
+    {
+        init();
+        // Initialize handlers
+    }
+
     // api_server &get_api_server();
     void use_api_certificate(const std::string &cert, const std::string &key);
     void use_api_auth_key(const std::string &key);
@@ -40,11 +48,18 @@ public:
     int run()
     {
         m_node_server.run();
-        logd("node server running");
-
-        // Run shared io_service
-        m_io.run();
+        m_api_server.run();
+        m_io.run(); // Run shared io_service
         return 0;
+    }
+
+private:
+    void init()
+    {
+        m_node_server.on_auth([](auto node, auto msg) {
+            logi("node authenticated and is added to the cluster from ",
+                 node->remote_host(), ":", node->remote_port());
+        });
     }
 };
 

@@ -16,6 +16,14 @@ class implementation : public json_message
 public:
     using json_message::json_message;
 
+    implementation(const std::string &method_)
+        : m_method(method_)
+    {
+        update(ns::json{{"method", method_}});
+        update(net::header(message::type::implement, 0, error::type::none,
+                           action::type::request, m_data.size()));
+    }
+
     // Include overloads that sync m_method
     LAYER_CONSTRUCTOR(implementation, method)
 
@@ -25,19 +33,16 @@ public:
     }
 
 private:
-    template <action::type>
-    friend implementation make_implementation(const std::string &);
+    template <action::type, typename... Args>
+    friend implementation make_implementation(Args &&...);
 };
 
-template <action::type action_t>
-implementation make_implementation(const std::string &method)
+template <action::type action_t, typename... Args>
+implementation make_implementation(Args &&... args)
 {
-    ns::json js{{"method", method}};
-    auto impl = implementation(net::header(message::type::implement, 0,
-                                           error::type::none, action_t,
-                                           js.dump().size()),
-                               js);
-    impl.m_method = impl.get_json().at("method");
+    auto impl = implementation(std::forward<Args>(args)...);
+    if (action_t != impl.get_action())
+        impl.update_action(action_t);
     return impl;
 }
 

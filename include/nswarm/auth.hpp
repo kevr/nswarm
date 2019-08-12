@@ -29,6 +29,14 @@ protected:
 public:
     using json_message::json_message;
 
+    auth(const std::string &k)
+        : m_key(k)
+    {
+        update(ns::json{{"key", k}});
+        update(net::header(message::type::auth, 0, error::type::none,
+                           action::type::request, m_data.size()));
+    }
+
     LAYER_CONSTRUCTOR(auth, key)
 
     const std::string &key() const
@@ -36,19 +44,30 @@ public:
         return m_key;
     }
 
+    void set_authenticated(bool authenticated)
+    {
+        m_json["data"] = authenticated;
+        update(std::move(m_json));
+    }
+
+    net::auth response() const
+    {
+        auto a = *this;                          // Make a copy of *this
+        a.update_action(action::type::response); // Update the copies action
+        return a;
+    }
+
 private:
-    template <action::type>
-    friend net::auth make_auth(ns::json);
+    template <action::type, typename... Args>
+    friend net::auth make_auth(Args &&...);
 };
 
-template <action::type action_t>
-net::auth make_auth(ns::json js)
+template <action::type action_t, typename... Args>
+net::auth make_auth(Args &&... args)
 {
-    const auto &str = js.dump();
-    auto a = net::auth(net::header(message::type::auth, 0, error::type::none,
-                                   action_t, str.size()),
-                       js);
-    a.m_key = a.get_json().at("key");
+    auto a = net::auth(std::forward<Args>(args)...);
+    if (action_t != a.get_action())
+        a.update_action(action_t);
     return a;
 }
 
@@ -61,27 +80,18 @@ net::auth make_auth_request(Args &&... args)
 template <typename... Args>
 net::auth make_auth_response(Args &&... args)
 {
-    return make_auth<action::type::request>(std::forward<Args>(args)...);
+    return make_auth<action::type::response>(std::forward<Args>(args)...);
 }
 
-inline net::auth make_auth_error(ns::json js)
+inline net::auth make_auth_error(const std::string &key,
+                                 const std::string &error)
 {
-    auto a = make_auth<action::type::response>(std::move(js));
-    a.update(net::header(a.get_type(), a.head().args(), error::type::set,
-                         a.get_action(), a.head().size()));
-    return a;
-}
-
-inline net::auth make_auth_error(const std::string &error)
-{
-    ns::json js{{"error", error}};
-    return make_auth_error(std::move(js));
-}
-
-inline net::auth make_auth_error(ns::json js, const std::string &error)
-{
+    auto a = make_auth_response(key);
+    a.update_error(error::type::set);
+    auto js = a.json();
     js["error"] = error;
-    return make_auth_error(std::move(js));
+    a.update(js);
+    return a;
 }
 
 }; // namespace net
