@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include <boost/version.hpp>
 #include <gtest/gtest.h>
 #include <nswarm/client.hpp>
 #include <nswarm/logging.hpp>
@@ -132,7 +133,8 @@ TEST_F(client_test, invalid_host)
             logd("Client disconnected.");
         })
         .on_error([](auto client, const auto &ec) {
-            EXPECT_EQ(ec, boost::asio::error::host_not_found);
+            EXPECT_TRUE(ec == boost::asio::error::host_not_found ||
+                        ec == boost::asio::error::host_not_found_try_again);
         })
         .run("googleboogle", "443");
 }
