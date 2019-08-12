@@ -83,8 +83,9 @@ private:
     {
         if (ec) {
             loge("got error while sending heartbeat: ", ec.message());
-            this->close();
-            this->call_close(this->shared_from_this());
+            if (this->connected()) {
+                this->close();
+            }
         } else {
             // We send a heartbeat every delay seconds
             const boost::posix_time::seconds delay{30}; // Seconds
