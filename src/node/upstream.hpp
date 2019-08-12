@@ -51,8 +51,7 @@ public:
 
     void subscribe(const std::string &event)
     {
-        ns::json js{{"event", event}};
-        send(net::make_subscription_request(js));
+        send(net::make_subscription_request(event));
     }
 
     //
