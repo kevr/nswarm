@@ -65,19 +65,20 @@ public:
 
     void init()
     {
-        on_auth([](auto c, auto msg) -> void {
-        });
-
-        // Bind protocol callbacks
+        // Bind L0 protocol callbacks
         m_proto
-            .on_auth([this](auto c, auto msg) -> void {
+            // Auth is the first stage we begin considering a node
+            // for real communication (if it succeeds).
+            .on_auth([this](auto node, auto msg) -> void {
+                logd("received auth request: ", msg.get_string());
+
                 auto auth_data = net::auth(msg);
                 bool authenticated = false;
                 try {
-                    authenticated = c->authenticate(auth_data.key());
+                    authenticated = node->authenticate(auth_data.key());
                     if (authenticated) {
-                        logi("node authenticated from ", c->remote_host(), ":",
-                             c->remote_port());
+                        logi("node authenticated from ", node->remote_host(),
+                             ":", node->remote_port());
                     }
                 } catch (ns::json::exception &e) {
                     loge("json parse error: ", e.what());
@@ -87,52 +88,56 @@ public:
 
                 auth_data.update_action(net::action::type::response);
                 auth_data.set_authenticated(authenticated);
-                c->send(std::move(auth_data));
+                node->send(std::move(auth_data));
 
                 if (!authenticated)
-                    c->close();
+                    node->close();
                 else
-                    this->call_auth(std::move(c), std::move(msg));
+                    // Forward node and json data to L1 auth
+                    call_auth(std::move(node), std::move(msg));
             })
-            .on_implement([this](auto c, auto msg) {
-                if (!c->authenticated()) {
+            .on_implement([this](auto node, auto msg) {
+                if (!node->authenticated()) {
                     loge("client not authenticated during on_subscribe");
-                    c->close();
+                    node->close();
                 } else {
-                    logd("received implement: ", msg.get_string());
+                    logd("received implement request: ", msg.get_string());
+                    call_implement(std::move(node), std::move(msg));
                 }
             })
-            .on_subscribe([this](auto c, auto msg) {
-                if (!c->authenticated()) {
+            .on_subscribe([this](auto node, auto msg) {
+                if (!node->authenticated()) {
                     loge("client not authenticated during on_subscribe");
-                    c->close();
+                    node->close();
                 } else {
-                    logd("received subscribe: ", msg.get_string());
+                    logd("received subscribe request: ", msg.get_string());
+                    call_subscribe(std::move(node), std::move(msg));
                 }
             })
-            .on_task([this](auto c, auto msg) {
-                if (!c->authenticated()) {
+            .on_task([this](auto node, auto msg) {
+                if (!node->authenticated()) {
                     loge("client not authenticated during on_task");
-                    c->close();
+                    node->close();
                 } else {
-                    logd("received task: ", msg.get_string());
+                    logd("received task response: ", msg.get_string());
+                    call_task(std::move(node), std::move(msg));
                 }
             });
 
         // Bind socket i/o callbacks
-        on_accept([this](auto client) {
-            m_nodes.emplace(client);
-            client->set_auth_key(m_auth.key());
-            client->run();
+        on_accept([this](auto node) {
+            m_nodes.emplace(node);
+            node->set_auth_key(m_auth.key());
+            node->run();
         })
-            .on_connect([this](auto client) {
-                logi("node connected from ", client->remote_host(), ":",
-                     client->remote_port());
+            .on_connect([this](auto node) {
+                logi("node connected from ", node->remote_host(), ":",
+                     node->remote_port());
             })
-            .on_read([this](auto client, auto msg) {
+            .on_read([this](auto node, auto msg) {
                 // When we read from a node, use m_proto to decide what to do.i
                 try {
-                    m_proto.call(msg.get_type(), client, msg);
+                    m_proto.call(msg.get_type(), node, msg);
                 } catch (std::exception &e) {
                     auto type = ns::data_value_string(msg.get_type());
                     loge(
@@ -140,14 +145,16 @@ public:
                         type, "]: ", e.what());
                 }
             })
-            .on_close([this](auto client) {
-                m_nodes.erase(m_nodes.find(client));
-                logi("node from ", client->remote_host(), ":",
-                     client->remote_port(),
+            .on_close([this](auto node) {
+                m_nodes.erase(m_nodes.find(node));
+                call_removed(node);
+                logi("node from ", node->remote_host(), ":",
+                     node->remote_port(),
                      " disconnected, removing it from the swarm");
             })
-            .on_error([this](auto client, const auto &ec) {
-                m_nodes.erase(m_nodes.find(client));
+            .on_error([this](auto node, const auto &ec) {
+                m_nodes.erase(m_nodes.find(node));
+                call_removed(node);
                 loge("node removed from the swarm due to: ", ec.message());
             })
             .on_server_error([this](auto server, const auto &ec) {
@@ -156,23 +163,44 @@ public:
                 // Close all node connections
                 for (auto &node : m_nodes)
                     node->close();
-                // Race here..?
+                m_nodes.clear();
             });
     }
 
-    using protocol<node_connection, json_message>::on_auth;
+    // Publicly accessible callbacks
+    using protocol::on_auth;      // action::type::request
+    using protocol::on_implement; // action::type::request
+    using protocol::on_subscribe; // action::type::request
+    using protocol::on_task;      // action::type::response
+    using tcp_server::on_removed;
 
 protected:
+    // These callbacks are privately handled within
+    // node_server::init().
     using tcp_server::on_accept;
     using tcp_server::on_close;
     using tcp_server::on_error;
     using tcp_server::on_read;
 
 private:
+    // A set of nodes that we keep track of.
     std::set<std::shared_ptr<node_connection>> m_nodes;
+
+    // A context which we use to compare incoming keys
+    // It's possible that we could remove this altogether
+    // or wrap it in a simpler set of classes.
     auth_context<authentication::plain> m_auth;
+
+    // L0 protocol handler. This provides a low level handler
+    // that we can bind to the client, which we can also call
+    // L1 protocol handlers from.
+    // The L1 protocol handler is built into this class, inherited
+    // via protocol<...>. So, users will bind L1 handlers externally,
+    // and we will bind L0 handlers internally.
+    //
     protocol<node_connection, json_message> m_proto;
 
+private:
     set_log_address;
 }; // namespace host
 

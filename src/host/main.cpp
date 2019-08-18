@@ -86,10 +86,17 @@ int main(int argc, const char *argv[])
 
     ns::host::daemon daemon;
 
-    // Configure daemon
-    daemon.use_node_certificate(opt.get<std::string>("node-cert"),
-                                opt.get<std::string>("node-cert-key"));
-    daemon.use_node_auth_key(opt.get<std::string>("node-auth-key"));
+    const auto &node_cert = opt.get<std::string>("node-cert");
+    const auto &node_cert_key = opt.get<std::string>("node-cert-key");
+    const auto &node_auth_key = opt.get<std::string>("node-auth-key");
 
+    // Configure node server certificates
+    daemon.set_node_certificate(node_cert, node_cert_key);
+
+    // Configure node server authentication key
+    daemon.set_node_auth_key(node_auth_key);
+
+    // Configure api server certificates
+    // Configure api server authentication key
     return daemon.run();
 }

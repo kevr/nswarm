@@ -120,15 +120,28 @@ class tcp_server : public async_object<tcp_server<T>, T>
 {
     std::unique_ptr<io_service> m_io_ptr;
 
-    async_accept_function<T> m_accept_f;
-    async_server_error_function<tcp_server> m_server_error_f;
+    // Set defaults for all of these handlers. We don't require them
+    // externally to operate.
+    async_accept_function<T> m_accept_f{[this](auto c) -> void {
+        logd("default m_accept_f called");
+    }};
 
-    std::thread m_thread;
+    async_server_error_function<tcp_server> m_server_error_f{
+        [this](auto c, auto e) -> void {
+            logd("default m_server_error_f called");
+        }};
+
+    // Set a function by default here
+    async_close_function<T> m_removed_f{[this](auto c) -> void {
+        logd("default m_removed_f called");
+    }};
 
     // Start connection count at 0. on_close/on_error we will
     // decrement this count.
     std::atomic<std::size_t> m_connections = 0;
 
+    // Server execution state.
+    std::thread m_thread;
     std::mutex m_mutex;
     bool m_running = false;
 
@@ -201,6 +214,12 @@ public:
     tcp_server &on_accept(async_accept_function<T> accept_f)
     {
         m_accept_f = accept_f;
+        return *this;
+    }
+
+    tcp_server &on_removed(async_close_function<T> removed_f)
+    {
+        m_removed_f = removed_f;
         return *this;
     }
 
@@ -296,6 +315,17 @@ protected:
         return m_server_error_f != nullptr;
     }
 
+    template <typename... Args>
+    void call_removed(Args &&... args) noexcept
+    {
+        m_removed_f(std::forward<Args>(args)...);
+    }
+
+    bool has_removed() const noexcept
+    {
+        return m_removed_f != nullptr;
+    }
+
 private:
     void try_accept()
     {
@@ -329,10 +359,13 @@ private:
             if (this->has_close())
                 client->on_close([this](auto c) {
                     m_connections.exchange(m_connections.load() - 1);
+                    m_removed_f(c);
                     this->call_close(c);
                 });
             if (this->has_error())
                 client->on_error([this](auto c, const auto &ec) {
+                    m_connections.exchange(m_connections.load() - 1);
+                    m_removed_f(c);
                     this->call_error(c, ec);
                 });
 
