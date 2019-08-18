@@ -9,6 +9,7 @@
 #ifndef NS_NODE_UPSTREAM_HPP
 #define NS_NODE_UPSTREAM_HPP
 
+#include <atomic>
 #include <nswarm/auth.hpp>
 #include <nswarm/client.hpp>
 #include <nswarm/data.hpp>
@@ -36,6 +37,8 @@ public:
         init();
     }
 
+    virtual ~upstream() = default;
+
     void auth(const std::string &key)
     {
         send(net::make_auth_request(key));
@@ -54,17 +57,6 @@ public:
         send(net::make_subscription_request(event));
     }
 
-    //
-    // Data structure:
-    //
-    // { "task_id": "1234abcd", "data": T }
-    //
-    // Examples
-    //
-    // respond("1234", std::vector<std::string>{"a", "b"});
-    // respond("1234", 123);
-    // respond("1234", "hello!");
-    //
     template <typename T>
     void respond(const std::string &task_id, net::task::type task_t,
                  const T &response)
@@ -80,11 +72,9 @@ public:
         send(std::move(data));
     }
 
-    virtual ~upstream() = default;
-
     const bool authenticated() const
     {
-        return m_is_authenticated;
+        return m_is_authenticated.load();
     }
 
 private:
@@ -98,10 +88,10 @@ private:
         on_auth([this](auto client, auto message) {
             auto json = message.get_json();
             if (json.at("data")) {
-                m_is_authenticated = true;
+                m_is_authenticated.exchange(true);
                 logi("authenticated with upstream host");
             } else {
-                m_is_authenticated = false;
+                m_is_authenticated.exchange(false);
                 this->close();
             }
         })
@@ -187,7 +177,7 @@ private:
     }
 
 private:
-    bool m_is_authenticated{false};
+    std::atomic<bool> m_is_authenticated{false};
     set_log_address;
 
 }; // class upstream
