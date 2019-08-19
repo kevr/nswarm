@@ -24,7 +24,7 @@ namespace node
 {
 
 class upstream : public client<upstream>,
-                 protected protocol<upstream, json_message>
+                 public protocol<upstream, json_message>
 {
 public:
     // We require upstream to be bound to the service server's io
@@ -84,56 +84,36 @@ private:
             auto hb = net::make_heartbeat_response();
             c->send(hb);
         });
+
         // Setup protocol callbacks
-        on_auth([this](auto client, auto message) {
-            auto json = message.get_json();
-            if (json.at("data")) {
-                m_is_authenticated.exchange(true);
-                logi("authenticated with upstream host");
-            } else {
-                m_is_authenticated.exchange(false);
-                this->close();
-            }
-        })
+        m_proto
+            .on_auth([this](auto client, auto message) {
+                auto json = message.get_json();
+                if (json.at("data")) {
+                    m_is_authenticated.exchange(true);
+                    call_auth(client, message);
+                    logi("authenticated with upstream host");
+                } else {
+                    m_is_authenticated.exchange(false);
+                    this->close();
+                }
+            })
             .on_implement([this](auto client, auto message) {
                 logi("on_implement response received");
+                call_implement(client, message);
             })
             .on_subscribe([this](auto client, auto message) {
                 logi("on_subscribe response received");
+                call_subscribe(client, message);
             })
             .on_task([this](auto client, auto message) {
-                logi("on_task request received");
-                // IMPORTANT: propagate request to service
-                // Propagate request onto a service that implements
-                // this event and/or method.
-                //
-                // In the service class, we'll implement a way to bind
-                // handlers to methods or events. method handlers
-                // will return a json serializable type, which
-                // will fill the "data" key of the response.
-                //
-                // Example functions:
-                //   auto f = [](std::vector<std::string> args) {
-                //      return args;
-                //   };
-                //
-                // service.implement("f", f);
-                //
-                // ...
-                // // task for method "f" comes in
-                // auto result = service.call("f", std::forward<Args>(args)...);
-                // ...
-                // auto request_json = message.get_json();
-                // response_json["task_id"] = request_json["task_id"];
-                //
-                // // serializes call result into message data
-                // response_json["data"] = result;
-                //
-                // auto response = response_json.dump();
-                // auto header = serialize_header(data_type::task,
-                //     action_type::response, response.size());
-                // send(data(header, response));
-                //
+                logi("on_task request received: ", message);
+                call_task(client, message);
+            })
+            .on_heartbeat([this](auto client, auto message) {
+                logi("on_heartbeat request received");
+                message.update_action(net::action::type::response);
+                client->send(message);
             });
 
         on_connect([this](auto client) {
@@ -141,23 +121,11 @@ private:
                  client->remote_port(), ")");
         })
             .on_read([this](auto client, auto msg) {
-                // on_read attempts to call protocol-level handlers
-                /*
                 try {
-                    this->call(msg.type(), client, msg);
-                } catch (std::out_of_range &e) {
-                    loge("no type handler bound for: ", msg.type());
-                } catch (json::parse_error &e) {
-                    if (this->has_error()) {
-                        this->call_error(client,
-                                         boost::asio::error::invalid_argument);
-                    }
+                    m_proto.call(msg.get_type(), client, msg);
                 } catch (std::exception &e) {
-                    loge("exception caught while running call for data type: ",
-                         msg.type(), "; message: ", e.what());
+                    loge(e.what());
                 }
-                */
-                this->call(msg.get_type(), client, msg);
             })
             .on_close([this](auto client) {
                 // Automatically try to reconnect
@@ -176,8 +144,16 @@ private:
         ;
     }
 
+protected:
+    using protocol::on_heartbeat;
+
 private:
     std::atomic<bool> m_is_authenticated{false};
+
+    // L0 protocol handlers.
+    protocol<upstream, json_message> m_proto;
+
+private:
     set_log_address;
 
 }; // class upstream
