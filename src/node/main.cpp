@@ -11,6 +11,7 @@
  * All Rights Reserved
  **/
 #include "config.hpp"
+#include "node/daemon.hpp"
 #include "node/upstream.hpp"
 
 #include <errno.h>
@@ -38,7 +39,6 @@ int main(int argc, const char *argv[])
     std::string home_config(getenv("HOME"));
     home_config.append("/.nswarm-node.conf");
     parse_configs(opt, home_config, "/etc/nswarm-node.conf");
-
     opt.parse(argc, argv);
 
     // If unable to parse or -h was provided, print help output
@@ -85,16 +85,12 @@ int main(int argc, const char *argv[])
     // Begin real program logic
     logi(opt.name(), " started");
 
-    ns::io_service io;
-    auto upstream = std::make_shared<ns::node::upstream>(io);
-    upstream->on_connect(
-        [key = opt.get<std::string>("upstream-auth-key")](auto c) {
-            logi("upstream connected to ", c->remote_host(), ":",
-                 c->remote_port(), ", authenticating");
-            c->auth(key);
-        });
-    upstream->run(opt.get<std::string>("upstream-host"),
-                  opt.get<std::string>("upstream-port"));
-    io.run();
-    return 0;
+    const std::string upstream_key = opt.get<std::string>("upstream-auth-key");
+    const std::string upstream_host = opt.get<std::string>("upstream-host");
+    const std::string upstream_port = opt.get<std::string>("upstream-port");
+
+    ns::node::daemon daemon;
+    daemon.set_upstream(upstream_host, upstream_port);
+    daemon.set_upstream_auth_key(upstream_key);
+    return daemon.run();
 }
