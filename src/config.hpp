@@ -118,7 +118,8 @@ public:
                                          std::string help)
     {
         help.append(" (required)");
-        m_desc.add_options()(name.c_str(), boost::program_options::value<T>(),
+        m_desc.add_options()(name.c_str(),
+                             boost::program_options::value<T>()->composing(),
                              help.c_str());
         m_required.emplace(name);
         return *this;
@@ -128,7 +129,8 @@ public:
     program_options &add_option(const std::string &name,
                                 const std::string &help)
     {
-        m_desc.add_options()(name.c_str(), boost::program_options::value<T>(),
+        m_desc.add_options()(name.c_str(),
+                             boost::program_options::value<T>()->composing(),
                              help.c_str());
         return *this;
     }
