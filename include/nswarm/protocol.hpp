@@ -18,20 +18,21 @@ namespace ns
 template <typename T, typename D>
 using async_protocol_function = std::function<void(std::shared_ptr<T>, D)>;
 
-template <typename T, typename D>
-using async_auth_function = async_protocol_function<T, D>;
+template <typename T>
+using async_auth_function = async_protocol_function<T, net::auth>;
 
-template <typename T, typename D>
-using async_implement_function = async_protocol_function<T, D>;
+template <typename T>
+using async_implement_function =
+    async_protocol_function<T, net::implementation>;
 
-template <typename T, typename D>
-using async_subscribe_function = async_protocol_function<T, D>;
+template <typename T>
+using async_subscribe_function = async_protocol_function<T, net::subscription>;
 
-template <typename T, typename D>
-using async_task_function = async_protocol_function<T, D>;
+template <typename T>
+using async_task_function = async_protocol_function<T, net::task>;
 
-template <typename T, typename D>
-using async_heartbeat_function = async_protocol_function<T, D>;
+template <typename T>
+using async_heartbeat_function = async_protocol_function<T, net::heartbeat>;
 
 template <typename ConnectionT, typename DataT>
 class protocol
