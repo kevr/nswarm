@@ -169,6 +169,19 @@ public:
     }
 };
 
+class guard
+{
+    std::mutex mtx;
+
+public:
+    template <typename Function>
+    auto operator()(Function f)
+    {
+        std::lock_guard<std::mutex> g(mtx);
+        return f();
+    }
+};
+
 }; // namespace util
 
 }; // namespace ns

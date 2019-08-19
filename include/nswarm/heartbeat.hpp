@@ -15,6 +15,8 @@ class heartbeat : public json_message
 public:
     using json_message::json_message;
 
+    EASY_LAYER_CONSTRUCTOR(heartbeat)
+
 private:
     template <action::type>
     friend heartbeat make_heartbeat();

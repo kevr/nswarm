@@ -574,6 +574,31 @@ public:
         m_##name = get_json().at(#name);                                       \
     }
 
+#define EASY_LAYER_CONSTRUCTOR(obj)                                            \
+    obj(const obj &o)                                                          \
+        : json_message(o)                                                      \
+    {                                                                          \
+    }                                                                          \
+    obj(obj &&o)                                                               \
+        : json_message(std::move(o))                                           \
+    {                                                                          \
+    }                                                                          \
+    obj(const json_message &js)                                                \
+        : json_message(js)                                                     \
+    {                                                                          \
+    }                                                                          \
+    obj(json_message &&js)                                                     \
+        : json_message(std::move(js))                                          \
+    {                                                                          \
+    }                                                                          \
+    void operator=(obj o)                                                      \
+    {                                                                          \
+        json_message::operator=(std::move(o));                                 \
+    }                                                                          \
+    void operator=(json_message m)                                             \
+    {                                                                          \
+        json_message::operator=(std::move(m));                                 \
+    }
 }; // namespace net
 
 using json_message = net::json_message;

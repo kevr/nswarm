@@ -134,6 +134,9 @@ public:
                 logi("node connected from ", node->remote_host(), ":",
                      node->remote_port());
             })
+            // These guys can only be privately controlled.
+            // Users of this class can control connection flow
+            // with on_connect, on_auth, and on_removed
             .on_read([this](auto node, auto msg) {
                 // When we read from a node, use m_proto to decide what to do.i
                 try {
@@ -147,14 +150,12 @@ public:
             })
             .on_close([this](auto node) {
                 m_nodes.erase(m_nodes.find(node));
-                call_removed(node);
                 logi("node from ", node->remote_host(), ":",
                      node->remote_port(),
                      " disconnected, removing it from the swarm");
             })
             .on_error([this](auto node, const auto &ec) {
                 m_nodes.erase(m_nodes.find(node));
-                call_removed(node);
                 loge("node removed from the swarm due to: ", ec.message());
             })
             .on_server_error([this](auto server, const auto &ec) {
@@ -172,6 +173,7 @@ public:
     using protocol::on_implement; // action::type::request
     using protocol::on_subscribe; // action::type::request
     using protocol::on_task;      // action::type::response
+    using tcp_server::on_connect;
     using tcp_server::on_removed;
 
 protected:

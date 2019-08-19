@@ -359,14 +359,14 @@ private:
             if (this->has_close())
                 client->on_close([this](auto c) {
                     m_connections.exchange(m_connections.load() - 1);
-                    m_removed_f(c);
                     this->call_close(c);
+                    call_removed(c);
                 });
             if (this->has_error())
                 client->on_error([this](auto c, const auto &ec) {
                     m_connections.exchange(m_connections.load() - 1);
-                    m_removed_f(c);
                     this->call_error(c, ec);
+                    call_removed(c);
                 });
 
             // If we're provided with an accept callback, run that

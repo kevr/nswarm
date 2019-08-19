@@ -5,8 +5,12 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <nswarm/auth.hpp>
 #include <nswarm/data.hpp>
 #include <nswarm/heartbeat.hpp>
+#include <nswarm/implement.hpp>
+#include <nswarm/subscribe.hpp>
+#include <nswarm/task.hpp>
 
 namespace ns
 {
@@ -33,16 +37,29 @@ template <typename ConnectionT, typename DataT>
 class protocol
 {
 private:
-    using async_protocol_function =
-        ns::async_protocol_function<ConnectionT, DataT>;
+    template <typename D>
+    using async_protocol_function = ns::async_protocol_function<ConnectionT, D>;
 
-    async_protocol_function m_auth_f;
-    async_protocol_function m_implement_f;
-    async_protocol_function m_subscribe_f;
-    async_protocol_function m_task_f;
-    async_protocol_function m_heartbeat_f;
-
-    std::map<net::message::type, async_protocol_function> call_table;
+    async_protocol_function<net::auth> m_auth_f{[this](auto c, auto d) {
+        logd("default auth_f function called");
+    }};
+    async_protocol_function<net::implementation> m_implement_f{
+        [this](auto c, auto d) {
+            logd("default implement_f function called");
+        }};
+    async_protocol_function<net::subscription> m_subscribe_f{
+        [this](auto c, auto d) {
+            logd("default subscribe_f function called");
+        }};
+    async_protocol_function<net::task> m_task_f{[this](auto c, auto d) {
+        logd("default task_f function called");
+    }};
+    async_protocol_function<net::heartbeat> m_heartbeat_f{
+        [this](auto c, auto d) {
+            logd("default heartbeat_f function called");
+            d.update_action(net::action::type::response);
+            c->send(std::move(d));
+        }};
 
 protected:
     set_log_address;
@@ -59,17 +76,16 @@ public:
         p_secret_log_addr = std::to_string((unsigned long)conn);
     }
 
-    protocol &on_auth(async_auth_function<ConnectionT, DataT> auth_f)
+    protocol &on_auth(async_protocol_function<net::auth> auth_f)
     {
         m_auth_f = auth_f;
-        call_table[net::message::auth] = m_auth_f;
         return *this;
     }
 
     template <typename... Args>
     void call_auth(Args &&... args)
     {
-        return m_auth_f(std::forward<Args>(args)...);
+        m_auth_f(std::forward<Args>(args)...);
     }
 
     bool has_auth() const
@@ -78,17 +94,16 @@ public:
     }
 
     protocol &
-    on_implement(async_implement_function<ConnectionT, DataT> implement_f)
+    on_implement(async_protocol_function<net::implementation> implement_f)
     {
         m_implement_f = implement_f;
-        call_table[net::message::implement] = m_implement_f;
         return *this;
     }
 
     template <typename... Args>
     void call_implement(Args &&... args)
     {
-        return m_implement_f(std::forward<Args>(args)...);
+        m_implement_f(std::forward<Args>(args)...);
     }
 
     bool has_implement() const
@@ -96,17 +111,17 @@ public:
         return m_implement_f != nullptr;
     }
 
-    protocol &on_subscribe(async_protocol_function subscribe_f)
+    protocol &
+    on_subscribe(async_protocol_function<net::subscription> subscribe_f)
     {
         m_subscribe_f = subscribe_f;
-        call_table[net::message::subscribe] = m_subscribe_f;
         return *this;
     }
 
     template <typename... Args>
     void call_subscribe(Args &&... args)
     {
-        return m_subscribe_f(std::forward<Args>(args)...);
+        m_subscribe_f(std::forward<Args>(args)...);
     }
 
     bool has_subscribe() const
@@ -114,17 +129,16 @@ public:
         return m_subscribe_f != nullptr;
     }
 
-    protocol &on_task(async_protocol_function task_f)
+    protocol &on_task(async_protocol_function<net::task> task_f)
     {
         m_task_f = task_f;
-        call_table[net::message::task] = m_task_f;
         return *this;
     }
 
     template <typename... Args>
     void call_task(Args &&... args)
     {
-        return m_task_f(std::forward<Args>(args)...);
+        m_task_f(std::forward<Args>(args)...);
     }
 
     bool has_task() const
@@ -132,17 +146,16 @@ public:
         return m_task_f != nullptr;
     }
 
-    protocol &on_heartbeat(async_protocol_function heartbeat_f)
+    protocol &on_heartbeat(async_protocol_function<net::heartbeat> heartbeat_f)
     {
         m_heartbeat_f = heartbeat_f;
-        call_table[net::message::heartbeat] = m_heartbeat_f;
         return *this;
     }
 
     template <typename... Args>
     void call_heartbeat(Args &&... args)
     {
-        return m_heartbeat_f(std::forward<Args>(args)...);
+        m_heartbeat_f(std::forward<Args>(args)...);
     }
 
     bool has_heartbeat() const
@@ -153,7 +166,26 @@ public:
     template <typename... Args>
     void call(net::message::type type, Args &&... args)
     {
-        call_table.at(type)(std::forward<Args>(args)...);
+        match(
+            net::message::deduce(type),
+            [&](net::message::tag::auth) {
+                call_auth(std::forward<Args>(args)...);
+            },
+            [&](net::message::tag::implement) {
+                call_implement(std::forward<Args>(args)...);
+            },
+            [&](net::message::tag::subscribe) {
+                call_subscribe(std::forward<Args>(args)...);
+            },
+            [&](net::message::tag::task) {
+                call_task(std::forward<Args>(args)...);
+            },
+            [&](net::message::tag::heartbeat) {
+                call_heartbeat(std::forward<Args>(args)...);
+            },
+            [this](auto e) {
+                loge("invalid message type received");
+            });
     }
 };
 
