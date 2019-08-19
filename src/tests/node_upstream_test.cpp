@@ -105,5 +105,49 @@ TEST_F(node_upstream_test, implements)
 
 TEST_F(node_upstream_test, subscribes)
 {
+    double delta; // benchmark value
+
+    using ns::net::action;
+
+    // Here we just send a response as if it was successful
+    m_server.set_auth_key("AuthKey");
+    m_server.on_subscribe([&](auto node, auto sub) {
+        sub.update_action(action::type::response);
+        node->send(std::move(sub));
+    });
+
+    // A thread-safe functor. Any data operated on within
+    // this functor will be accessed acrossed mutex locks.
+    auto guarded = ns::util::guard();
+    net::subscription sub;
+
+    auto upstream = std::make_shared<node::upstream>(m_server.get_io_service());
+    upstream
+        ->on_connect([&](auto client) {
+            client->auth("AuthKey");
+        })
+        .on_auth([&](auto client, auto message) {
+            // Send implements request
+            bench.start();
+            logi("successfully authenticated with key: ", message.key());
+            client->subscribe("test");
+        })
+        .on_subscribe([&](auto client, auto message) {
+            delta = bench.stop();
+            EXPECT_FALSE(message.has_error());
+            EXPECT_EQ(message.event(), "test");
+            guarded([&] {
+                sub = message;
+            });
+        });
+
+    upstream->run("localhost", "6666");
+    ns::wait_until([&] {
+        return guarded([&] {
+            return sub.get_action() == action::type::response;
+        });
+    });
+
+    logi("subscription took: ", delta, "ms");
 }
 
