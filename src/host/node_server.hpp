@@ -168,13 +168,15 @@ public:
             });
     }
 
+    // Publicly accessible connection handlers
+    using tcp_server::on_connect;
+    using tcp_server::on_removed;
+
     // Publicly accessible callbacks
     using protocol::on_auth;      // action::type::request
     using protocol::on_implement; // action::type::request
     using protocol::on_subscribe; // action::type::request
     using protocol::on_task;      // action::type::response
-    using tcp_server::on_connect;
-    using tcp_server::on_removed;
 
 protected:
     // These callbacks are privately handled within
