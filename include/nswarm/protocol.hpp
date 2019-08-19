@@ -184,8 +184,9 @@ public:
             [&](net::message::tag::heartbeat) {
                 call_heartbeat(std::forward<Args>(args)...);
             },
-            [this](auto e) {
-                loge("invalid message type received");
+            [&](auto e) {
+                loge("invalid message type received: ", (uint16_t)type,
+                     ", bailing");
             });
     }
 };
