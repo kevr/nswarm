@@ -13,6 +13,7 @@
 #include <libgen.h>
 #include <map>
 #include <mutex>
+#include <nswarm/util.hpp>
 #include <sstream>
 
 namespace ns
@@ -106,14 +107,16 @@ public:
     template <typename... Args>
     void info(Args &&... args)
     {
-        out("[ ", color::green::value, "INFO", color::normal::value, " ] ",
+        out("[ ", color::green::value, "INFO", color::normal::value, " ] [",
+            ns::util::system_time::now().to_string(), "] ",
             std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void error(Args &&... args)
     {
-        out("[  ", color::red::value, "ERR", color::normal::value, " ] ",
+        out("[  ", color::red::value, "ERR", color::normal::value, " ] [",
+            ns::util::system_time::now().to_string(), "] ",
             std::forward<Args>(args)...);
     }
 
@@ -121,7 +124,8 @@ public:
     void debug(Args &&... args)
     {
         if (m_debug) {
-            out("[  ", color::yellow::value, "DBG", color::normal::value, " ] ",
+            out("[  ", color::yellow::value, "DBG", color::normal::value,
+                " ] [", ns::util::system_time::now().to_string(), "] ",
                 std::forward<Args>(args)...);
         }
     }
@@ -130,7 +134,8 @@ public:
     void trace(Args &&... args)
     {
         if (m_trace) {
-            out("[ ", color::yellow::value, "TRCE", color::normal::value, " ] ",
+            out("[ ", color::yellow::value, "TRCE", color::normal::value,
+                " ] [", ns::util::system_time::now().to_string(), "] ",
                 std::forward<Args>(args)...);
         }
     }
@@ -160,6 +165,14 @@ private:
         // a single time, as to avoid interleaving on console.
         ss << arg << std::endl;
         std::cout << ss.str(); // Thread-safe
+    }
+
+    std::string datetime() const
+    {
+        // Current date time;
+        std::string dt;
+
+        return dt;
     }
 
 private:

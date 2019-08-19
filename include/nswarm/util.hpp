@@ -11,7 +11,6 @@
 #define NS_UTIL_HPP
 
 #include <mutex>
-#include <nswarm/logging.hpp>
 #include <stdexcept>
 #include <sys/stat.h>
 #include <thread>
@@ -30,12 +29,10 @@ public:
     lock_guard(T &arg)
         : m_guard(arg)
     {
-        logd("acquired");
     }
 
     ~lock_guard()
     {
-        logd("released");
     }
 
 private:
@@ -46,12 +43,10 @@ private:
 template <typename Predicate>
 void wait_until(Predicate p, int64_t timeout = 60)
 {
-    logd("waiting ", timeout, " seconds until predicate is true");
     int64_t timeout_ms = 60 * 1000;
     while (timeout_ms > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         if (p()) {
-            logd("predicate matched");
             return;
         }
         timeout_ms -= 1;
@@ -62,6 +57,7 @@ void wait_until(Predicate p, int64_t timeout = 60)
 
 namespace util
 {
+
 // Benchmark tools
 class benchmark
 {
@@ -126,6 +122,52 @@ std::vector<std::string> any_file(Args &&... args)
 {
     return _any_file(std::forward<Args>(args)...);
 }
+
+// typename CT: Chrono time point
+class time_point
+{
+    std::time_t m_time_t;
+
+    // localtime is thread unsafe, so we lock.
+    static std::mutex mtx;
+
+public:
+    time_point(std::time_t t)
+        : m_time_t(t)
+    {
+    }
+
+    time_point(const time_point &tp)
+        : m_time_t(tp.m_time_t)
+    {
+    }
+
+    void operator=(const time_point &tp)
+    {
+        m_time_t = tp.m_time_t;
+    }
+
+    std::string to_string() const
+    {
+        std::lock_guard<std::mutex> guard(mtx);
+        std::string s(26, '\0');
+        std::strftime(&s[0], 25, "%Y-%m-%d %H:%M:%S %Z",
+                      std::localtime(&m_time_t));
+        return s;
+    }
+};
+
+// Instantiate time_point::mtx inline.
+inline std::mutex time_point::mtx;
+
+class system_time
+{
+public:
+    static time_point now()
+    {
+        return time_point(std::time(nullptr));
+    }
+};
 
 }; // namespace util
 
