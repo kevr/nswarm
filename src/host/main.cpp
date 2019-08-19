@@ -15,29 +15,16 @@
 #include <string>
 #include <thread>
 
+void add_options(ns::program_options &opt);
+
 int main(int argc, const char *argv[])
 {
-    ns::program_options opt("Daemon options");
-
-    // Add nswarm-host specific options
-    opt.add_required_option<std::string>("api-cert",
-                                         "SSL certificate for api server");
-    opt.add_required_option<std::string>("api-cert-key",
-                                         "SSL certificate key for api server");
-    opt.add_required_option<std::string>(
-        "api-auth-key", "Authentication key required by incoming API users");
-
-    opt.add_required_option<std::string>("node-cert",
-                                         "SSL certificate for node server");
-    opt.add_required_option<std::string>("node-cert-key",
-                                         "SSL certificate key for node server");
-    opt.add_required_option<std::string>(
-        "node-auth-key", "Authentication key required by incoming nodes");
-
     std::string home_config(getenv("HOME"));
     home_config.append("/.nswarm-host.conf");
-    parse_configs(opt, home_config, "/etc/nswarm-host.conf");
 
+    ns::program_options opt("Daemon options");
+    add_options(opt);
+    parse_configs(opt, home_config, "/etc/nswarm-host.conf");
     opt.parse(argc, argv);
 
     // If unable to parse or -h was provided, print help output
@@ -84,19 +71,48 @@ int main(int argc, const char *argv[])
     // Begin real program logic
     logi(opt.name(), " started");
 
-    ns::host::daemon daemon;
+    const int node_port =
+        opt.exists("node-server-port")
+            ? std::stoi(opt.get<std::string>("node-server-port"))
+            : 6666;
+    const int api_port =
+        opt.exists("api-server-port")
+            ? std::stoi(opt.get<std::string>("api-server-port"))
+            : 6667;
 
-    const auto &node_cert = opt.get<std::string>("node-cert");
-    const auto &node_cert_key = opt.get<std::string>("node-cert-key");
-    const auto &node_auth_key = opt.get<std::string>("node-auth-key");
+    const auto node_cert = opt.get<std::string>("node-cert");
+    const auto node_cert_key = opt.get<std::string>("node-cert-key");
+    const auto node_auth_key = opt.get<std::string>("node-auth-key");
 
-    // Configure node server certificates
+    ns::host::daemon daemon(api_port, node_port);
     daemon.set_node_certificate(node_cert, node_cert_key);
-
-    // Configure node server authentication key
     daemon.set_node_auth_key(node_auth_key);
-
-    // Configure api server certificates
-    // Configure api server authentication key
     return daemon.run();
+}
+
+// Specific nswarm-host options, as well as some optionals
+// that are also specific to nswarm-host
+void add_options(ns::program_options &opt)
+{
+    opt.add_required_option<std::string>("api-cert",
+                                         "SSL certificate for api server");
+    opt.add_required_option<std::string>("api-cert-key",
+                                         "SSL certificate key for api server");
+    opt.add_required_option<std::string>(
+        "api-auth-key", "Authentication key required by incoming API users");
+    opt.add_option<std::string>("api-server-host",
+                                "Bind host for the tcp api server");
+    opt.add_option<std::string>("api-server-port",
+                                "Listening port for the tcp api server");
+
+    opt.add_required_option<std::string>("node-cert",
+                                         "SSL certificate for node server");
+    opt.add_required_option<std::string>("node-cert-key",
+                                         "SSL certificate key for node server");
+    opt.add_required_option<std::string>(
+        "node-auth-key", "Authentication key required by incoming nodes");
+    opt.add_option<std::string>("node-server-host",
+                                "Bind host for the tcp node server");
+    opt.add_option<std::string>("node-server-port",
+                                "Listening port for the tcp node server");
 }

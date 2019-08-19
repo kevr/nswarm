@@ -24,16 +24,43 @@ class daemon
     manager<node_connection, json_message> m_nodes;
     manager<api_connection, json_message> m_users;
 
+    // task_id => api_connection
+    using api_connection_ptr = std::shared_ptr<api_connection>;
+    std::map<std::string, api_connection_ptr> m_tasks;
+
 public:
     daemon()
     {
         init();
-        // Initialize handlers
+    }
+
+    daemon(unsigned short api_port, unsigned short node_port)
+        : m_node_server(m_io, node_port)
+        , m_api_server(m_io, api_port)
+    {
+        init();
+    }
+
+    io_service &get_io_service()
+    {
+        return m_io;
+    }
+
+    api_server &get_api_server()
+    {
+        return m_api_server;
     }
 
     // api_server &get_api_server();
-    void use_api_certificate(const std::string &cert, const std::string &key);
-    void use_api_auth_key(const std::string &key);
+    void set_api_certificate(const std::string &cert, const std::string &key)
+    {
+        m_api_server.use_certificate(cert, key);
+    }
+
+    void set_api_auth_key(const std::string &key)
+    {
+        m_api_server.set_auth_key(key);
+    }
 
     node_server &get_node_server()
     {
@@ -54,21 +81,23 @@ public:
     {
         m_node_server.run();
         m_api_server.run();
-        m_io.run(); // Run shared io_service
+
+        // Run the shared io_service
+        m_io.run();
         return 0;
     }
 
 private:
     void init()
     {
-        // Figure out how to configure managing nodes in the node server.
-        m_node_server.on_removed([this](auto node) {
-            logi("node_connection was removed");
-        });
-
         m_node_server.on_auth([](auto node, auto msg) {
             logi("node authenticated and is added to the cluster from ",
                  node->remote_host(), ":", node->remote_port());
+        });
+
+        // Figure out how to configure managing nodes in the node server.
+        m_node_server.on_removed([this](auto node) {
+            logi("node_connection was removed");
         });
     }
 };
