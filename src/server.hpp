@@ -30,16 +30,12 @@ using async_server_error_function =
 template <typename T>
 class connection : public async_io_object<T>
 {
-    boost::asio::deadline_timer m_heartbeat;
-    boost::asio::streambuf m_heartbeat_buf;
-    std::ostream m_heartbeat_os{&m_heartbeat_buf};
 
 protected:
     set_log_address;
 
 public:
     connection(io_service &io, ssl::context &ctx) noexcept
-        : m_heartbeat(io)
     {
         this->initialize_socket(io, ctx);
     }
@@ -66,6 +62,7 @@ public:
 
     void start_heartbeat()
     {
+        /*
         auto hb = net::make_heartbeat_request();
         uint64_t head = hb.head().value();
         m_heartbeat_os.write((char *)&head, sizeof(uint64_t));
@@ -79,6 +76,7 @@ public:
                         this->shared_from_this(),
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
+                        */
     }
 
     // Make this publicly accessible
@@ -94,11 +92,13 @@ private:
                 this->close();
             }
         } else {
+            /*
             // We send a heartbeat every delay seconds
             const boost::posix_time::seconds delay{30}; // Seconds
             m_heartbeat.expires_from_now(delay);
             m_heartbeat.async_wait(boost::bind(&connection<T>::start_heartbeat,
                                                this->shared_from_this()));
+                                               */
         }
     }
 
@@ -343,19 +343,18 @@ private:
         if (!ec) {
             logd("client accepted");
 
+            // Bump up connection count
             m_connections.exchange(m_connections.load() + 1);
 
             // Bind all callbacks to our new connection
             if (this->has_connect())
                 client->on_connect([this](auto c) {
-                    c->start_heartbeat();
                     this->call_connect(c);
                 });
             if (this->has_read())
-                client->on_read(std::bind(
-                    &tcp_server::template call_read<std::shared_ptr<T>,
-                                                    json_message>,
-                    this, std::placeholders::_1, std::placeholders::_2));
+                client->on_read([this](auto c, auto msg) {
+                    this->call_read(c, msg);
+                });
             if (this->has_close())
                 client->on_close([this](auto c) {
                     m_connections.exchange(m_connections.load() - 1);
@@ -372,10 +371,12 @@ private:
             // If we're provided with an accept callback, run that
             if (has_accept())
                 call_accept(client); // client->run() should be called
-                                     // in the accept function
+            // in the accept function
+            else
+                logd("connection accepted, but no callback was "
+                     "provided");
+
             m_running = true;
-            logd("connection accepted, but no callback was "
-                 "provided");
 
             // Go for another accept loop and wait for a connection
             try_accept();

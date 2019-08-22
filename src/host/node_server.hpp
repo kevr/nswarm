@@ -72,10 +72,9 @@ public:
             .on_auth([this](auto node, auto msg) -> void {
                 logd("received auth request: ", msg.get_string());
 
-                auto auth_data = net::auth(msg);
                 bool authenticated = false;
                 try {
-                    authenticated = node->authenticate(auth_data.key());
+                    authenticated = node->authenticate(msg.key());
                     if (authenticated) {
                         logi("node authenticated from ", node->remote_host(),
                              ":", node->remote_port());
@@ -86,15 +85,15 @@ public:
                     loge("error while parsing auth request: ", e.what());
                 }
 
-                auth_data.update_action(net::action::type::response);
-                auth_data.set_authenticated(authenticated);
-                node->send(std::move(auth_data));
+                msg.update_action(net::action::type::response);
+                msg.set_authenticated(authenticated);
+                node->send(msg);
 
                 if (!authenticated)
                     node->close();
                 else
                     // Forward node and json data to L1 auth
-                    call_auth(std::move(node), std::move(msg));
+                    call_auth(std::move(node), msg);
             })
             .on_implement([this](auto node, auto msg) {
                 if (!node->authenticated()) {
@@ -133,12 +132,13 @@ public:
             .on_connect([this](auto node) {
                 logi("node connected from ", node->remote_host(), ":",
                      node->remote_port());
+                node->start_heartbeat();
             })
             // These guys can only be privately controlled.
             // Users of this class can control connection flow
             // with on_connect, on_auth, and on_removed
             .on_read([this](auto node, auto msg) {
-                // When we read from a node, use m_proto to decide what to do.i
+                // When we read from a node, use m_proto to decide what to do.
                 try {
                     m_proto.call(msg.get_type(), node, msg);
                 } catch (std::exception &e) {

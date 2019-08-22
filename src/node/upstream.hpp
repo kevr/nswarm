@@ -80,18 +80,13 @@ public:
 private:
     void init()
     {
-        on_heartbeat([this](auto c, auto msg) {
-            auto hb = net::make_heartbeat_response();
-            c->send(hb);
-        });
-
         // Setup protocol callbacks
         m_proto
             .on_auth([this](auto client, auto message) {
                 auto json = message.get_json();
                 if (json.at("data")) {
                     m_is_authenticated.exchange(true);
-                    call_auth(client, message);
+                    this->call_auth(client, std::move(message));
                     logi("authenticated with upstream host");
                 } else {
                     m_is_authenticated.exchange(false);
@@ -100,20 +95,20 @@ private:
             })
             .on_implement([this](auto client, auto message) {
                 logi("on_implement response received");
-                call_implement(client, message);
+                this->call_implement(client, std::move(message));
             })
             .on_subscribe([this](auto client, auto message) {
                 logi("on_subscribe response received");
-                call_subscribe(client, message);
+                this->call_subscribe(client, std::move(message));
             })
             .on_task([this](auto client, auto message) {
                 logi("on_task request received: ", message);
-                call_task(client, message);
+                this->call_task(client, std::move(message));
             })
             .on_heartbeat([this](auto client, auto message) {
                 logi("on_heartbeat request received");
                 message.update_action(net::action::type::response);
-                client->send(message);
+                client->send(std::move(message));
             });
 
         on_connect([this](auto client) {
@@ -122,7 +117,7 @@ private:
         })
             .on_read([this](auto client, auto msg) {
                 try {
-                    m_proto.call(msg.get_type(), client, msg);
+                    this->m_proto.call(msg.get_type(), client, std::move(msg));
                 } catch (std::exception &e) {
                     loge(e.what());
                 }
