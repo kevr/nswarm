@@ -534,10 +534,17 @@ public:
     // Provide a friend for std::ostream, for easy writes externally
     friend std::ostream &operator<<(std::ostream &os, const json_message &msg)
     {
+        // use this mutex as a sort of barrier to writes to os.
+        // it should always be chunked into these two writes.
+        static std::mutex mtx;
+        std::lock_guard<std::mutex> guard(mtx);
         uint64_t head = msg.head().value();
         os.write(reinterpret_cast<char *>(&head), sizeof(uint64_t));
+        std::string s(msg.get_string());
         if (msg.size())
-            os.write(msg.get_string().c_str(), msg.size());
+            os.write(s.c_str(), msg.size());
+        logd("sent header: ", std::bitset<64>(head), " with data: '",
+             msg.get_string(), "'");
         return os;
     }
 };
