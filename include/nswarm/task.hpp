@@ -31,7 +31,7 @@ protected:
     std::string m_task_id;
 
 public:
-    enum type { call = 0x0, event = 0x1, bad };
+    enum type { call = 1, event = 2, bad };
 
     struct tag {
         struct call {
@@ -142,6 +142,16 @@ public:
         return call_response(std::move(t));
     }
 
+    const std::string get_method() const
+    {
+        return m_json.at("method");
+    }
+
+    const std::string get_event() const
+    {
+        return m_json.at("event");
+    }
+
     void set_event(const std::string &event)
     {
         if (m_json.find("method") != m_json.end())
@@ -162,6 +172,9 @@ public:
         if (head().args() != task::type::call)
             update_args(task::type::call);
         update(std::move(m_json));
+        logd("set_method m_data size: ", m_data.size());
+        logd("data size: ", size());
+        logd("data: ", get_string());
     }
 
 private:
