@@ -62,68 +62,68 @@ public:
     Derivative &on_read(async_read_function<T> f)
     {
         m_read_f = f;
-        return *reinterpret_cast<Derivative *>(this);
+        return static_cast<Derivative &>(*this);
     }
 
     Derivative &on_connect(async_connect_function<T> f)
     {
         m_connect_f = f;
-        return *reinterpret_cast<Derivative *>(this);
+        return static_cast<Derivative &>(*this);
     }
 
     Derivative &on_close(async_close_function<T> f)
     {
         m_close_f = f;
-        return *reinterpret_cast<Derivative *>(this);
+        return static_cast<Derivative &>(*this);
     }
 
     Derivative &on_error(async_error_function<T> f)
     {
         m_error_f = f;
-        return *reinterpret_cast<Derivative *>(this);
+        return static_cast<Derivative &>(*this);
     }
 
 protected:
     template <typename... Args>
-    void call_read(Args &&... args) noexcept
+    void call_read(Args &&... args)
     {
         m_read_f(std::forward<Args>(args)...);
     }
 
-    bool has_read() const noexcept
+    bool has_read() const
     {
         return m_read_f != nullptr;
     }
 
     template <typename... Args>
-    void call_connect(Args &&... args) noexcept
+    void call_connect(Args &&... args)
     {
         m_connect_f(std::forward<Args>(args)...);
     }
 
-    bool has_connect() const noexcept
+    bool has_connect() const
     {
         return m_connect_f != nullptr;
     }
 
     template <typename... Args>
-    void call_close(Args &&... args) noexcept
+    void call_close(Args &&... args)
     {
         m_close_f(std::forward<Args>(args)...);
     }
 
-    bool has_close() const noexcept
+    bool has_close() const
     {
         return m_close_f != nullptr;
     }
 
     template <typename... Args>
-    void call_error(Args &&... args) noexcept
+    void call_error(Args &&... args)
     {
         m_error_f(std::forward<Args>(args)...);
     }
 
-    bool has_error() const noexcept
+    bool has_error() const
     {
         return m_error_f != nullptr;
     }
@@ -205,6 +205,11 @@ public:
     void send(const D &data)
     {
         const auto &str = data.get_string();
+        logd(
+            "sending message of type: ", ns::data_value_string(data.get_type()),
+            " with args: ", data.head().args(),
+            " and data size: ", data.size());
+        logd("sending json data: ", str);
 
         // payload size cannot be larger than our data_size segment of header
         if (str.size() > std::numeric_limits<uint32_t>::max())
@@ -213,39 +218,15 @@ public:
                 "std::numeric_limits<uint32_t>::max(): " +
                 std::to_string(std::numeric_limits<uint32_t>::max()));
 
-        m_os << data;
-        boost::asio::async_write(
-            *m_socket, m_output,
-            boost::asio::transfer_exactly(data.total_size()),
-            boost::bind(&T::async_on_write, this->shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
-    }
-
-    // This function is deprecated and should not be used.
-    void send(uint16_t type, uint16_t flags = 0,
-              std::optional<std::string> data = std::optional<std::string>())
-    {
-        logd("this function is deprecated and should not be used");
-
-        uint32_t data_size = 0; // Assume no data
-
-        // Here: if data is present, serialize_header with the real data size
-        // and set data_size at the same time.
-        uint64_t pkt =
-            data ? serialize_header(type, flags, data_size)
-                 : serialize_header(type, flags, (data_size = data->size()));
-
-        m_os << pkt; // Put the header header into the stream
-        if (data)
-            m_os << *data;
-
-        boost::asio::async_write(
-            *m_socket, m_output,
-            boost::asio::transfer_exactly(data_size + sizeof(pkt)),
-            boost::bind(&T::async_on_write, this->shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
+        boost::asio::dispatch(m_socket->get_io_context(), [this, data = data] {
+            m_os << data;
+            boost::asio::async_write(
+                *m_socket, m_output,
+                boost::asio::transfer_exactly(data.total_size()),
+                boost::bind(&T::async_on_write, this->shared_from_this(),
+                            boost::asio::placeholders::error,
+                            boost::asio::placeholders::bytes_transferred));
+        });
     }
 
     tcp_socket &socket()
@@ -279,8 +260,7 @@ public:
     }
 
 protected:
-    void
-    start_handshake(ssl::stream_base::handshake_type handshake_type) noexcept
+    void start_handshake(ssl::stream_base::handshake_type handshake_type)
     {
         m_socket->async_handshake(
             handshake_type,
@@ -289,7 +269,7 @@ protected:
     }
 
     void start_resolve(tcp::resolver &resolver, const std::string &host,
-                       const std::string &port) noexcept
+                       const std::string &port)
     {
         m_remote_host = host;
         m_remote_port = port;
@@ -302,8 +282,7 @@ protected:
     }
 
     template <typename... Args>
-    void handle_error(const boost::system::error_code &ec,
-                      Args &&... args) noexcept
+    void handle_error(const boost::system::error_code &ec, Args &&... args)
     {
         // If the error is not in the whitelist, explicitly log it out
         if (m_errors_wl.find(ec) == m_errors_wl.end()) {
@@ -335,7 +314,7 @@ protected:
         logd("remote_endpoint: ", m_remote_host, ':', m_remote_port);
     }
 
-    void close() noexcept
+    void close()
     {
         trace();
         boost::system::error_code ec; // No need to check, silently fail
@@ -353,8 +332,9 @@ protected:
     }
 
 private:
-    void start_read() noexcept
+    void start_read()
     {
+        trace();
         boost::asio::async_read(
             *m_socket, m_input, boost::asio::transfer_exactly(sizeof(uint64_t)),
             boost::bind(&T::async_on_read_header, this->shared_from_this(),
@@ -364,7 +344,7 @@ private:
 
 private: // boost::asio async callbacks
     void async_on_resolve(const boost::system::error_code &ec,
-                          tcp::resolver::iterator iter) noexcept
+                          tcp::resolver::iterator iter)
     {
         trace();
 
@@ -382,7 +362,7 @@ private: // boost::asio async callbacks
     }
 
     void async_on_connect(const boost::system::error_code &ec,
-                          tcp::resolver::iterator next) noexcept
+                          tcp::resolver::iterator next)
     {
         trace();
 
@@ -404,7 +384,7 @@ private: // boost::asio async callbacks
         }
     }
 
-    void async_on_handshake(const boost::system::error_code &ec) noexcept
+    void async_on_handshake(const boost::system::error_code &ec)
     {
         trace();
 
@@ -426,7 +406,7 @@ private: // boost::asio async callbacks
     }
 
     void async_on_read_header(const boost::system::error_code &ec,
-                              std::size_t bytes) noexcept
+                              std::size_t bytes)
     {
         trace();
 
@@ -443,15 +423,14 @@ private: // boost::asio async callbacks
             logd("deserialized header: type = ", type, ", args = ", head.args(),
                  ", action = ", action, ", size = ", head.size());
 
-            if (data.head().size() > 0) {
+            if (head.size() > 0) {
                 boost::asio::async_read(
                     *m_socket, m_input,
                     boost::asio::transfer_exactly(head.size()),
-                    boost::bind(&T::async_on_read_data,
-                                this->shared_from_this(),
-                                boost::asio::placeholders::error,
-                                boost::asio::placeholders::bytes_transferred,
-                                std::move(data)));
+                    boost::bind(
+                        &T::async_on_read_data, this->shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred, data));
             } else {
                 // IMPORTANT: This is all wrong. We need better overrides for
                 // ns::data
@@ -466,11 +445,11 @@ private: // boost::asio async callbacks
     }
 
     void async_on_read_data(const boost::system::error_code &ec,
-                            std::size_t bytes, json_message data) noexcept
+                            std::size_t bytes, json_message data)
     {
         trace();
 
-        if ((std::size_t)data.head().size() != bytes) {
+        if (static_cast<std::size_t>(data.size()) != bytes) {
             loge("mismatched data size: ", data.head().size(), " vs ", bytes);
         }
 
@@ -480,6 +459,7 @@ private: // boost::asio async callbacks
                 this->call_read(this->shared_from_this(), std::move(data));
             }
 
+            logd("m_input.in_avail(): ", m_input.in_avail());
             // Start reading again
             start_read();
         } else {
@@ -487,8 +467,7 @@ private: // boost::asio async callbacks
         }
     }
 
-    void async_on_write(const boost::system::error_code &ec,
-                        std::size_t bytes) noexcept
+    void async_on_write(const boost::system::error_code &ec, std::size_t bytes)
     {
         trace();
 
@@ -501,7 +480,7 @@ private: // boost::asio async callbacks
     }
 
     void async_on_heartbeat(const boost::system::error_code &ec,
-                            std::size_t bytes) noexcept
+                            std::size_t bytes)
     {
         trace();
 

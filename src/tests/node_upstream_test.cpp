@@ -151,3 +151,64 @@ TEST_F(node_upstream_test, subscribes)
     logi("subscription took: ", delta, "ms");
 }
 
+TEST_F(node_upstream_test, handles_task)
+{
+    double delta; // benchmark value
+
+    using ns::net::action;
+
+    net::task t;
+    auto guarded = ns::util::guard();
+
+    auto upstream = std::make_shared<node::upstream>(m_server.get_io_service());
+
+    // Here we just send a response as if it was successful
+    m_server.set_auth_key("AuthKey");
+    m_server.on_auth([&](auto node, auto message) {
+        logi("node authentication state: ", node->authenticated());
+        auto task = ns::net::make_task_request("taskUUID");
+        task.set_method("test");
+        bench.start();
+        node->send(task); // This never gets called on upstream's side
+        // Why? We need to investigate the bug here.
+        // It seems to never even read the async_on_read_header
+        // portion at any point. Perhaps there's a race
+        // with signaling here?...
+    });
+    m_server.on_task([&](auto node, auto task) {
+        delta = bench.stop();
+        EXPECT_EQ(task.get_action(), action::type::response);
+        EXPECT_EQ(task.head().args(), ns::net::task::type::call);
+        EXPECT_EQ(task.get_method(), "test");
+        guarded([&] {
+            t = task;
+        });
+    });
+
+    upstream
+        ->on_connect([&](auto client) {
+            client->auth("AuthKey");
+        })
+        .on_auth([&](auto client, auto message) {
+            logi("successfully authenticated with key: ", message.key());
+        })
+        .on_task([](auto client, auto task) {
+            task.update_action(action::type::response);
+
+            // An empty list
+            auto json = task.get_json();
+            json["data"] = std::vector<std::string>();
+            task.update(json);
+
+            client->send(task);
+        });
+
+    upstream->run("localhost", "6666");
+    ns::wait_until([&] {
+        return guarded([&] {
+            return t.get_action() == action::type::response;
+        });
+    });
+
+    logi("task took: ", delta, "ms");
+}
