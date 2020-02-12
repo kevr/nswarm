@@ -54,7 +54,7 @@ TEST_F(api_server_test, server_listens)
         .on_error([](auto c, const auto &e) {
             loge("error: ", e.message());
         })
-        .run("localhost", "6666");
+        .run("localhost", "6667");
 }
 
 TEST_F(api_server_test, server_denies_auth)
@@ -66,7 +66,7 @@ TEST_F(api_server_test, server_denies_auth)
         ->on_connect([this](auto c) {
             EXPECT_EQ(m_server->count(), 1);
             logi("connected to ", c->remote_host(), ":", c->remote_port());
-            c->send(net::make_auth_request(ns::json{{"key", "abcd"}}));
+            c->send(net::make_auth_request("abcd"));
         })
         .on_close([this](auto c) {
             logi("closed");
@@ -74,7 +74,7 @@ TEST_F(api_server_test, server_denies_auth)
         .on_error([this](auto c, const auto &e) {
             loge("error: ", e.message());
         })
-        .run("localhost", "6666");
+        .run("localhost", "6667");
 
     // Wait until client is connected.
     // We need a better wait to wait until a client is added
