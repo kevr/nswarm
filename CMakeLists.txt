@@ -16,9 +16,9 @@ endif( CMAKE_BUILD_TYPE )
 
 # Alter library flags dependant on build type
 if( CMAKE_BUILD_TYPE EQUAL "DEBUG" )
-set( PROJECT_LIBS "-ltcmalloc -lpthread -lgtest -lboost_program_options -lboost_system -lssl -lcrypto -ltsan" )
+set( PROJECT_LIBS "-pthread -lgtest -lboost_program_options -lboost_system -lssl -lcrypto -ltsan" )
 else( CMAKE_BUILD_TYPE EQUAL "DEBUG" )
-set( PROJECT_LIBS "-ltcmalloc -lpthread -lgtest -lboost_program_options -lboost_system -lssl -lcrypto" )
+set( PROJECT_LIBS "-pthread -lgtest -lboost_program_options -lboost_system -lssl -lcrypto" )
 endif( CMAKE_BUILD_TYPE EQUAL "DEBUG" )
 
 # We require a C++17 compliant compiler
